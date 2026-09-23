@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "ERP Azul",
+    "slug": "erp-azul",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#1d4ed8"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "android": {
+      "package": "mx.uptx.erp"
+    },
+    "ios": {
+      "bundleIdentifier": "mx.uptx.erp"
+    }
+  }
+}
