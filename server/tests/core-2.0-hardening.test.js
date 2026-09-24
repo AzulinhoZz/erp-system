@@ -100,3 +100,49 @@ test('RBAC separation: a company Admin cannot create a platform role', async () 
     service.create = original;
   }
 });
+
+
+test('tenant isolation: product list ignores client-supplied companyId', async () => {
+  const controller = require('../src/modules/inventario/products/controller');
+  const service = require('../src/modules/inventario/products/service');
+  const original = service.list;
+  let args;
+  service.list = async (input) => { args = input; return { items: [], total: 0 }; };
+  try {
+    await controller.list({
+      user: { companyId: 'company-a' },
+      query: { companyId: 'company-b', q: 'SKU' },
+    }, responseSpy(), (err) => { if (err) throw err; });
+    assert.equal(args.companyId, 'company-a');
+  } finally { service.list = original; }
+});
+
+test('tenant integrity: invoice creation uses authenticated company context', async () => {
+  const controller = require('../src/modules/ventas/invoices/controller');
+  const service = require('../src/modules/ventas/invoices/service');
+  const original = service.create;
+  let args;
+  service.create = async (input) => { args = input; return input; };
+  try {
+    await controller.create({
+      user: { companyId: 'company-a' },
+      body: { salesOrderId: 'so-a', companyId: 'company-b', dueDate: '2026-09-30' },
+    }, responseSpy(), (err) => { if (err) throw err; });
+    assert.equal(args.companyId, 'company-a');
+  } finally { service.create = original; }
+});
+
+test('tenant isolation: notification read cannot target another company', async () => {
+  const controller = require('../src/modules/notificaciones/notifications/controller');
+  const service = require('../src/modules/notificaciones/notifications/service');
+  const original = service.markRead;
+  let args;
+  service.markRead = async (...input) => { args = input; return {}; };
+  try {
+    await controller.markRead({
+      user: { companyId: 'company-a' },
+      params: { id: 'notification-b' },
+    }, responseSpy(), (err) => { if (err) throw err; });
+    assert.equal(args[1], 'company-a');
+  } finally { service.markRead = original; }
+});
