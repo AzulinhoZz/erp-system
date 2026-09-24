@@ -48,3 +48,12 @@ client/src/services/resources.js         → helpers REST genéricos
 client/src/components/CrudScreen.js      → CRUD reutilizable config-driven
 client/src/store/authStore.js            → sesión + RBAC de UI (Zustand)
 ```
+## Core 2.0 — hardening multi-tenant y RBAC
+
+- El contexto de empresa para operaciones de usuarios proviene exclusivamente de req.user.companyId, derivado del JWT autenticado.
+- Los parámetros companyId enviados por el cliente no seleccionan el tenant.
+- Las lecturas y actualizaciones de usuarios se resuelven con {_id, companyId} para evitar acceso cruzado por ID.
+- server/src/middlewares/tenantScope.js centraliza la exigencia de contexto de empresa.
+- Los roles siguen siendo globales en esta fase; un Admin de empresa no puede asignar ni crear un rol con *, Super Admin o marca de plataforma.
+- No se introduce stock por almacén ni nuevos módulos.
+- El frontend conserva los contratos existentes; el endurecimiento se realiza en backend.
