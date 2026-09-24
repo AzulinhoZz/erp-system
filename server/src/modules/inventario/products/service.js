@@ -46,11 +46,12 @@ async function create(data) {
  * (keeps the movement ledger consistent).
  */
 async function update(id, data, companyId) {
-  const { stock, sku, companyId, ...safe } = data;
-  const product = await Product.findByIdAndUpdate(id, safe, {
-    new: true,
-    runValidators: true,
-  });
+  const { stock, sku, ...safe } = data;
+  const product = await Product.findOneAndUpdate(
+    { _id: id, companyId },
+    safe,
+    { new: true, runValidators: true },
+  );
   if (!product) throw new ApiError(404, 'Product not found');
   return product;
 }
