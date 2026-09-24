@@ -14,7 +14,7 @@ async function list(req, res, next) {
 /** POST /payroll/run — process a whole period (idempotent, transactional). */
 async function run(req, res, next) {
   try {
-    const companyId = req.body.companyId || req.user.companyId;
+    const companyId = requireTenant(req);
     const result = await service.run({ ...req.body, companyId });
     res.status(201).json(result);
   } catch (err) {
