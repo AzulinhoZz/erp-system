@@ -11,9 +11,9 @@
 | POST | `/auth/login` | público | `{email, password}` → `{accessToken, refreshToken, user, company}` |
 | POST | `/auth/refresh` | público | `{refreshToken}` → tokens rotados |
 | GET | `/auth/me` | autenticado | perfil + rol + permisos |
-| GET | `/users` | `users:read` | `?page&limit&q&isActive&companyId` |
+| GET | `/users` | `users:read` | `?page&limit&q&isActive — empresa tomada del JWT` |
 | GET | `/users/:id` | `users:read` | |
-| POST | `/users` | `users:write` | `{name, email, password, roleId, companyId?}` |
+| POST | `/users` | `users:write` | `{name, email, password, roleId} — empresa tomada del JWT` |
 | PUT | `/users/:id` | `users:write` | password opcional |
 | GET/POST | `/roles` · GET/PUT `/roles/:id` | `roles:read/write` | |
 | GET/POST | `/companies` · GET/PUT `/companies/:id` | `companies:read/write` | |
@@ -94,3 +94,9 @@
 ## Reportes (⏳)
 
 | GET | `/reports/:type` | `reports:read` |
+
+## Reglas de seguridad Core 2.0
+
+- companyId no es una selección de tenant confiable del cliente.
+- En /users, el backend deriva el tenant de la sesión autenticada.
+- Un Admin de empresa no puede asignar *, Super Admin ni roles marcados como plataforma.
