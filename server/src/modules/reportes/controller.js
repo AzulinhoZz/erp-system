@@ -1,9 +1,11 @@
 'use strict';
 
+const { requireTenant } = require('../../../middlewares/tenantScope');
+
 const service = require('./service');
 
 function scoped(req) {
-  return { companyId: req.query.companyId || req.user.companyId, ...req.query };
+  return { ...req.query, companyId: requireTenant(req) };
 }
 
 async function inventoryStock(req, res, next) {
