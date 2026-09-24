@@ -65,8 +65,8 @@ async function list({ companyId, page = 1, limit = 20 }) {
   return { items, total, page: Number(page), limit: Number(limit) };
 }
 
-async function getById(id) {
-  const entry = await JournalEntry.findById(id).populate('lines.accountId', 'code name type');
+async function getById(id, companyId) {
+  const entry = await JournalEntry.findOne({ _id: id, companyId }).populate('lines.accountId', 'code name type');
   if (!entry) throw new ApiError(404, 'Journal entry not found');
   return entry;
 }

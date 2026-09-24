@@ -3,7 +3,6 @@
 const mongoose = require('mongoose');
 const { ApiError } = require('./errorHandler');
 
-/** Tiny in-memory cache so we don't hit the roles collection on every request. */
 const roleCache = new Map();
 const CACHE_TTL_MS = 60_000;
 
@@ -22,11 +21,6 @@ function invalidateRoleCache(roleId) {
   else roleCache.clear();
 }
 
-/**
- * RBAC middleware factory: authorize('users:create') or authorize(['a','b']).
- * Permissions are validated against the role stored in the database,
- * never hardcoded per route.
- */
 function authorize(required) {
   const requiredPerms = Array.isArray(required) ? required : [required];
 
@@ -43,6 +37,7 @@ function authorize(required) {
         requiredPerms[0] === '*' || requiredPerms.every((p) => perms.includes(p) || perms.includes('*'));
 
       if (!allowed) return next(new ApiError(403, 'Insufficient permissions'));
+      req.authz = { role };
       return next();
     } catch (err) {
       return next(err);
@@ -50,4 +45,23 @@ function authorize(required) {
   };
 }
 
-module.exports = { authorize, invalidateRoleCache };
+function isPlatformRole(role) {
+  return Boolean(role && (role.isPlatform === true || role.permissions?.includes('*') || role.name === 'Super Admin'));
+}
+
+function forbidPlatformRoleMutation(req, _res, next) {
+  const role = req.authz?.role;
+  const isCompanyAdmin = role && role.name === 'Admin' && !isPlatformRole(role);
+  if (!isCompanyAdmin) return next();
+
+  const requestedPermissions = req.body?.permissions || [];
+  const requestedName = req.body?.name;
+
+  if (requestedPermissions.includes('*') || requestedName === 'Super Admin' || req.body?.isPlatform === true) {
+    return next(new ApiError(403, 'Company Admin cannot create or assign platform roles'));
+  }
+
+  return next();
+}
+
+module.exports = { authorize, invalidateRoleCache, isPlatformRole, forbidPlatformRoleMutation };

@@ -405,3 +405,34 @@ auditoría automática: 33 registros (último: POST /invoices → 201)
 ---
 
 ---
+## Fase 2 — Core 2.0 Hardening (en curso)
+
+**Fecha:** 24 de septiembre de 2026
+
+### Rama
+- chore/core-2.0-hardening
+
+### Cambios realizados
+- tests/core-2.0-hardening.test.js: pruebas de regresión para tenant spoofing, acceso cruzado por ID y creación de roles de plataforma por Admin de empresa.
+- middlewares/tenantScope.js: exige companyId proveniente del contexto autenticado.
+- middlewares/rbac.js: conserva RBAC por permisos y expone el rol resuelto para controles de plataforma.
+- modules/core/users/controller.js + service.js: list/get/create/update quedan vinculados al companyId autenticado; se ignora companyId del body/query y se impide asignar roles de plataforma a un Admin de empresa.
+- modules/core/roles/controller.js: bloquea creación/modificación de roles con privilegios de plataforma por parte de Admin de empresa.
+
+### Contrato conservado
+No se agregaron módulos ni stock por almacén. El frontend no requiere enviar un companyId confiable para seleccionar tenant.
+
+### Verificación
+Se agregó CI en .github/workflows/server-tests.yml y se abrió PR #1 para ejecutar npm test. Al cierre de esta actualización, el workflow de GitHub Actions estaba en estado queued; por tanto, la ejecución verde todavía no puede declararse.
+### Ampliación de hardening — aislamiento transversal
+
+- Los controladores de entidades con alcance por empresa derivan el tenant de req.user.companyId; los companyId enviados por query/body no son fuente de autoridad.
+- Lecturas y actualizaciones por ID en entidades con companyId se resuelven con el par {_id, companyId}.
+- Operaciones cruzadas de compras, ventas, inventario, facturación y asistencia validan referencias contra la empresa autenticada.
+- El libro de movimientos de stock se filtra a través de productos pertenecientes al tenant; no se introduce stock por almacén.
+- Las notificaciones marcadas como leídas quedan limitadas al tenant autenticado.
+- Se añadieron regresiones para productos, facturación y notificaciones además de las pruebas originales de Users/Roles.
+
+### Verificación CI
+
+El workflow server-tests fue disparado nuevamente por los últimos cambios. Al momento de registrar esta entrada, GitHub Actions permanece en estado queued; por ello todavía no se declara una ejecución verde final. La última ejecución completada anterior detectó y permitió corregir el test de RBAC que no estaba proporcionando el contexto req.authz en el fixture.

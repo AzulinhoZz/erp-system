@@ -22,26 +22,26 @@ async function list({ companyId, q, isActive, page = 1, limit = 20 }) {
   return { items, total, page: Number(page), limit: Number(limit) };
 }
 
-async function getById(id) {
-  const employee = await Employee.findById(id).populate('branchId', 'name');
+async function getById(id, companyId) {
+  const employee = await Employee.findOne({ _id: id, companyId }).populate('branchId', 'name');
   if (!employee) throw new ApiError(404, 'Employee not found');
   return employee;
 }
 
 async function create(data) {
-  const branch = await Branch.findById(data.branchId);
+  const branch = await Branch.findOne({ _id: data.branchId, companyId: data.companyId });
   if (!branch) throw new ApiError(400, 'branchId does not match an existing branch');
   // Denormalize the company from the branch so scoping stays consistent
   return Employee.create({ ...data, companyId: branch.companyId });
 }
 
-async function update(id, data) {
+async function update(id, data, companyId) {
   if (data.branchId) {
-    const branch = await Branch.findById(data.branchId);
+    const branch = await Branch.findOne({ _id: data.branchId, companyId: data.companyId });
     if (!branch) throw new ApiError(400, 'branchId does not match an existing branch');
     data = { ...data, companyId: branch.companyId };
   }
-  const employee = await Employee.findByIdAndUpdate(id, data, {
+  const employee = await Employee.findOneAndUpdate({ _id: id, companyId }, data, {
     new: true,
     runValidators: true,
   });
