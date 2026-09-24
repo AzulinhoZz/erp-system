@@ -31,20 +31,26 @@ async function getById(id, companyId) {
   return user;
 }
 
-async function create(data) {
+async function create(data, actor) {
   const { password, ...rest } = data;
   if (!password) throw new ApiError(400, 'Password is required');
   const role = await Role.findById(rest.roleId);
   if (!role) throw new ApiError(400, 'roleId does not match an existing role');
+  if (actor?.role?.name === 'Admin' && !actor?.isPlatform && (role.name === 'Super Admin' || role.isPlatform === true || role.permissions?.includes('*'))) {
+    throw new ApiError(403, 'Company Admin cannot assign platform roles');
+  }
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
   return User.create({ ...rest, passwordHash });
 }
 
-async function update(id, data, companyId) {
+async function update(id, data, companyId, actor) {
   const { password, ...rest } = data;
   if (rest.roleId) {
     const role = await Role.findById(rest.roleId);
     if (!role) throw new ApiError(400, 'roleId does not match an existing role');
+    if (actor?.role?.name === 'Admin' && !actor?.isPlatform && (role.name === 'Super Admin' || role.isPlatform === true || role.permissions?.includes('*'))) {
+      throw new ApiError(403, 'Company Admin cannot assign platform roles');
+    }
   }
   const user = await User.findOne({ _id: id, companyId });
   if (!user) throw new ApiError(404, 'User not found');
