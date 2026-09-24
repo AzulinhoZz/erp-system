@@ -24,7 +24,6 @@ async function getById(req, res, next) {
 async function create(req, res, next) {
   try {
     const body = { ...req.body, companyId: requireTenant(req) };
-    body.companyId = requireTenant(req);
     res.status(201).json(await service.create(body));
   } catch (err) {
     next(err);
