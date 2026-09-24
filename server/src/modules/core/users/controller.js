@@ -24,7 +24,7 @@ async function getById(req, res, next) {
 async function create(req, res, next) {
   try {
     const body = { ...req.body, companyId: requireTenant(req) };
-    res.status(201).json(await service.create(body, req.user));
+    res.status(201).json(await service.create(body, { ...req.user, role: req.authz?.role }));
   } catch (err) {
     next(err);
   }
@@ -35,7 +35,7 @@ async function update(req, res, next) {
     const { companyId } = req.user;
     const body = { ...req.body };
     delete body.companyId;
-    res.json(await service.update(req.params.id, body, requireTenant(req)));
+    res.json(await service.update(req.params.id, body, requireTenant(req), { ...req.user, role: req.authz?.role }));
   } catch (err) {
     next(err);
   }
