@@ -87,6 +87,7 @@ test('RBAC separation: a company Admin cannot create a platform role', async () 
   try {
     const req = {
       user: { id: 'admin-a', roleId: 'admin-role', companyId: 'company-a' },
+      authz: { role: { name: 'Admin', permissions: ['roles:read', 'roles:write'], isPlatform: false } },
       body: { name: 'Platform Clone', permissions: ['*'] },
     };
     const res = responseSpy();
