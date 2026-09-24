@@ -25,8 +25,8 @@ async function list({ companyId, q, category, page = 1, limit = 20 }) {
   return { items, total, page: Number(page), limit: Number(limit) };
 }
 
-async function getById(id) {
-  const product = await Product.findById(id);
+async function getById(id, companyId) {
+  const product = await Product.findOne({ _id: id, companyId });
   if (!product) throw new ApiError(404, 'Product not found');
   return product;
 }
@@ -34,7 +34,7 @@ async function getById(id) {
 /** POST /products — stock inicial solo al crear (los cambios son movimientos). */
 async function create(data) {
   if (data.sku) {
-    const dup = await Product.findOne({ sku: String(data.sku).toUpperCase() });
+    const dup = await Product.findOne({ companyId: data.companyId, sku: String(data.sku).toUpperCase() });
     if (dup) throw new ApiError(409, 'SKU already exists');
   }
   return Product.create(data);
@@ -45,7 +45,7 @@ async function create(data) {
  * stock is NOT editable here: it only changes through stock movements
  * (keeps the movement ledger consistent).
  */
-async function update(id, data) {
+async function update(id, data, companyId) {
   const { stock, sku, companyId, ...safe } = data;
   const product = await Product.findByIdAndUpdate(id, safe, {
     new: true,
