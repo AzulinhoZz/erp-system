@@ -38,9 +38,9 @@ async function list({ companyId, unreadOnly, page = 1, limit = 30 }) {
   return { items, total, unread, page: Number(page), limit: Number(limit) };
 }
 
-async function markRead(id) {
-  const notification = await Notification.findByIdAndUpdate(
-    id,
+async function markRead(id, companyId) {
+  const notification = await Notification.findOneAndUpdate(
+    { _id: id, companyId },
     { read: true },
     { new: true }
   );
