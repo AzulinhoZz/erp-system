@@ -99,7 +99,9 @@ async function create({ productId, warehouseId, type, quantity, date, reference,
 
 /** GET /stock-movements — paginated ledger with populated refs. */
 async function list({ productId, warehouseId, companyId, page = 1, limit = 20 }) {
-  const query = { companyId };
+  const query = {};
+  const products = await Product.find({ companyId }).select('_id');
+  query.productId = { $in: products.map((p) => p._id) };
   if (productId) query.productId = productId;
   if (warehouseId) query.warehouseId = warehouseId;
   const skip = (Math.max(1, Number(page)) - 1) * Number(limit);
