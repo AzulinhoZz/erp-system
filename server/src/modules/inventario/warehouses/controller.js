@@ -23,7 +23,7 @@ async function getById(req, res, next) {
 
 async function create(req, res, next) {
   try {
-    res.status(201).json(await service.create(req.body));
+    res.status(201).json(await service.create({ ...req.body, companyId: requireTenant(req) }));
   } catch (err) {
     next(err);
   }
