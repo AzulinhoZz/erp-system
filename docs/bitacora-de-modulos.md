@@ -405,3 +405,22 @@ auditoría automática: 33 registros (último: POST /invoices → 201)
 ---
 
 ---
+## Fase 2 — Core 2.0 Hardening (en curso)
+
+**Fecha:** 24 de septiembre de 2026
+
+### Rama
+- chore/core-2.0-hardening
+
+### Cambios realizados
+- tests/core-2.0-hardening.test.js: pruebas de regresión para tenant spoofing, acceso cruzado por ID y creación de roles de plataforma por Admin de empresa.
+- middlewares/tenantScope.js: exige companyId proveniente del contexto autenticado.
+- middlewares/rbac.js: conserva RBAC por permisos y expone el rol resuelto para controles de plataforma.
+- modules/core/users/controller.js + service.js: list/get/create/update quedan vinculados al companyId autenticado; se ignora companyId del body/query y se impide asignar roles de plataforma a un Admin de empresa.
+- modules/core/roles/controller.js: bloquea creación/modificación de roles con privilegios de plataforma por parte de Admin de empresa.
+
+### Contrato conservado
+No se agregaron módulos ni stock por almacén. El frontend no requiere enviar un companyId confiable para seleccionar tenant.
+
+### Verificación
+Se agregó CI en .github/workflows/server-tests.yml y se abrió PR #1 para ejecutar npm test. Al cierre de esta actualización, el workflow de GitHub Actions estaba en estado queued; por tanto, la ejecución verde todavía no puede declararse.
