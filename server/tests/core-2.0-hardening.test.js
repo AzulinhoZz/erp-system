@@ -95,7 +95,7 @@ test('RBAC separation: a company Admin cannot create a platform role', async () 
     await rolesController.create(req, res, (err) => { nextError = err; });
 
     assert.equal(called, false);
-    assert.equal(nextError?.statusCode, 403);
+    assert.equal(nextError?.status, 403);
   } finally {
     service.create = original;
   }
