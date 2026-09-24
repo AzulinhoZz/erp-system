@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 
 const usersController = require('../src/modules/core/users/controller');
 const rolesController = require('../src/modules/core/roles/controller');
+const productsController = require('../src/modules/inventario/products/controller');
 
 function responseSpy() {
   return {
@@ -103,7 +104,7 @@ test('RBAC separation: a company Admin cannot create a platform role', async () 
 
 
 test('tenant isolation: product list ignores client-supplied companyId', async () => {
-  const controller = require('../src/modules/inventario/products/controller');
+  const controller = productsController;
   const service = require('../src/modules/inventario/products/service');
   const original = service.list;
   let args;
