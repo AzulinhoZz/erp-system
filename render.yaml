@@ -1,8 +1,13 @@
 # Render Blueprint — ERP Azul (full stack)
-# Docs: https://render.com/docs/render-blueprint-spec
+# Docs: https://render.com/docs/blueprint-spec
 #
 # Deploy desde el dashboard: New → Blueprint → conecta el repo GitHub.
-# Variables con sync:false se configuran en el dashboard si cambian.
+# Variables con sync:false se configuran en el dashboard durante la creación.
+#
+# Notas:
+# - Los sitios estáticos son type: web + runtime: static (NO type: static_site).
+# - Render asigna PORT dinámicamente; server/src/config/env.js lee process.env.PORT.
+# - MONGO_URI se pega en el dashboard (mongodb+srv:// de Atlas).
 
 services:
   # --- API: Node/Express + Socket.io ---
@@ -10,7 +15,6 @@ services:
     name: erp-azul-api
     runtime: node
     plan: free
-    rootDir: .            # monorepo: instalar desde la raíz (npm workspaces)
     buildCommand: npm ci
     startCommand: node server/src/app.js
     healthCheckPath: /health
@@ -18,10 +22,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 10000      # Render ignora tu elección, pero lo dejamos explícito
       - key: MONGO_URI
-        sync: false       # ← pegar el mongodb+srv:// correcto de Atlas
+        sync: false       # ← pegar el mongodb+srv:// de Atlas en el dashboard
       - key: JWT_ACCESS_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
@@ -33,10 +35,10 @@ services:
       - key: CORS_ORIGINS
         value: http://localhost:19006,http://localhost:8081,https://erp-azul-web.onrender.com
 
-  # --- WEB: React Native Web (estático) ---
-  - type: static_site
+  # --- WEB: React Native Web (estático, CDN global) ---
+  - type: web
     name: erp-azul-web
-    plan: free
+    runtime: static
     buildCommand: npm ci && npm run build:web --workspace=client
     staticPublishPath: client/dist
     autoDeploy: true
