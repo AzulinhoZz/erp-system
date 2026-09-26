@@ -1,0 +1,46 @@
+# Render Blueprint — ERP Azul (full stack)
+# Docs: https://render.com/docs/render-blueprint-spec
+#
+# Deploy desde el dashboard: New → Blueprint → conecta el repo GitHub.
+# Variables con sync:false se configuran en el dashboard si cambian.
+
+services:
+  # --- API: Node/Express + Socket.io ---
+  - type: web
+    name: erp-azul-api
+    runtime: node
+    plan: free
+    rootDir: .            # monorepo: instalar desde la raíz (npm workspaces)
+    buildCommand: npm ci
+    startCommand: node server/src/app.js
+    healthCheckPath: /health
+    autoDeploy: true      # deploy en cada push a main
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000      # Render ignora tu elección, pero lo dejamos explícito
+      - key: MONGO_URI
+        sync: false       # ← pegar el mongodb+srv:// correcto de Atlas
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      - key: CORS_ORIGINS
+        value: http://localhost:19006,http://localhost:8081,https://erp-azul-web.onrender.com
+
+  # --- WEB: React Native Web (estático) ---
+  - type: static_site
+    name: erp-azul-web
+    plan: free
+    buildCommand: npm ci && npm run build:web --workspace=client
+    staticPublishPath: client/dist
+    autoDeploy: true
+    envVars:
+      # inyectada en el bundle en tiempo de build (EXPO_PUBLIC_*)
+      - key: EXPO_PUBLIC_API_URL
+        value: https://erp-azul-api.onrender.com
