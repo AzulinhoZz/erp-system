@@ -16,8 +16,8 @@ async function list({ companyId, q, page = 1, limit = 20 }) {
   return { items, total, page: Number(page), limit: Number(limit) };
 }
 
-async function getById(id) {
-  const customer = await Customer.findById(id);
+async function getById(id, companyId) {
+  const customer = await Customer.findOne({ _id: id, companyId });
   if (!customer) throw new ApiError(404, 'Customer not found');
   return customer;
 }
@@ -26,8 +26,8 @@ async function create(data) {
   return Customer.create(data);
 }
 
-async function update(id, data) {
-  const customer = await Customer.findByIdAndUpdate(id, data, {
+async function update(id, data, companyId) {
+  const customer = await Customer.findOneAndUpdate({ _id: id, companyId }, data, {
     new: true,
     runValidators: true,
   });

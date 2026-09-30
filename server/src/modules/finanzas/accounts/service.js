@@ -19,8 +19,8 @@ async function list({ companyId, type, q, page = 1, limit = 50 }) {
   return { items, total, page: Number(page), limit: Number(limit) };
 }
 
-async function getById(id) {
-  const account = await Account.findById(id);
+async function getById(id, companyId) {
+  const account = await Account.findOne({ _id: id, companyId });
   if (!account) throw new ApiError(404, 'Account not found');
   return account;
 }
@@ -32,16 +32,16 @@ async function create({ code, name, type, companyId }) {
   return Account.create({ code, name, type, companyId });
 }
 
-async function update(id, data) {
+async function update(id, data, companyId) {
   if (data.code || data.companyId) {
-    const account = await Account.findById(id);
+    const account = await Account.findOne({ _id: id, companyId });
     if (!account) throw new ApiError(404, 'Account not found');
     if (data.code && data.code !== account.code) {
       const dup = await Account.findOne({ companyId: account.companyId, code: data.code });
       if (dup) throw new ApiError(409, `Account code '${data.code}' already exists`);
     }
   }
-  const account = await Account.findByIdAndUpdate(id, data, {
+  const account = await Account.findOneAndUpdate({ _id: id, companyId }, data, {
     new: true,
     runValidators: true,
   });

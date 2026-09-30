@@ -34,7 +34,7 @@ async function list({ companyId, status, page = 1, limit = 20 }) {
  *   3. moves the SO to status 'invoiced'
  * amount/dueDate are validated; amount can't exceed the order total.
  */
-async function create({ salesOrderId, amount, dueDate, status }) {
+async function create({ salesOrderId, amount, dueDate, status, companyId }) {
   if (!dueDate) throw new ApiError(400, 'dueDate is required');
   if (!INVOICE_STATUS.includes(status || 'pending')) {
     throw new ApiError(400, 'Invalid invoice status');
@@ -45,7 +45,7 @@ async function create({ salesOrderId, amount, dueDate, status }) {
     let invoice;
 
     await session.withTransaction(async () => {
-      const so = await SalesOrder.findById(salesOrderId).session(session);
+      const so = await SalesOrder.findOne({ _id: salesOrderId, companyId }).session(session);
       if (!so) throw new ApiError(404, 'salesOrderId does not match an existing sales order');
       if (so.status !== 'confirmed') {
         throw new ApiError(409, `Only confirmed sales orders can be invoiced (status '${so.status}')`);
@@ -101,9 +101,9 @@ async function create({ salesOrderId, amount, dueDate, status }) {
 }
 
 /** PUT /invoices/:id/status — paid/overdue/cancelled transitions. */
-async function updateStatus(id, status) {
+async function updateStatus(id, status, companyId) {
   if (!INVOICE_STATUS.includes(status)) throw new ApiError(400, 'Invalid invoice status');
-  const invoice = await Invoice.findByIdAndUpdate(id, { status }, { new: true });
+  const invoice = await Invoice.findOneAndUpdate({ _id: id, companyId }, { status }, { new: true });
   if (!invoice) throw new ApiError(404, 'Invoice not found');
   return invoice;
 }

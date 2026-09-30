@@ -1,10 +1,12 @@
 'use strict';
 
+const { requireTenant } = require('../../../middlewares/tenantScope');
+
 const service = require('./service');
 
 async function list(req, res, next) {
   try {
-    const companyId = req.query.companyId || req.user.companyId;
+    const companyId = requireTenant(req);
     res.json(await service.list({ ...req.query, companyId }));
   } catch (err) {
     next(err);
@@ -13,7 +15,7 @@ async function list(req, res, next) {
 
 async function markRead(req, res, next) {
   try {
-    res.json(await service.markRead(req.params.id));
+    res.json(await service.markRead(req.params.id, requireTenant(req)));
   } catch (err) {
     next(err);
   }

@@ -5,8 +5,8 @@ const Payroll = require('./model');
 const Employee = require('../employees/model');
 const { ApiError } = require('../../../middlewares/errorHandler');
 
-async function list({ period, page = 1, limit = 50 }) {
-  const query = {};
+async function list({ companyId, period, page = 1, limit = 50 }) {
+  const query = { companyId };
   if (period) query.period = period;
   const skip = (Math.max(1, Number(page)) - 1) * Number(limit);
 
@@ -36,12 +36,12 @@ async function list({ period, page = 1, limit = 50 }) {
  *   - skipExisting=false (default): lanza 409 con la lista de duplicados
  *   - skipExisting=true: los omite y procesa solo los pendientes
  */
-async function run({ period, branchId, skipExisting = false }) {
+async function run({ companyId, period, branchId, skipExisting = false }) {
   if (!/^\d{4}-\d{2}$/.test(period || '')) {
     throw new ApiError(400, "period debe tener formato 'YYYY-MM' (ej. 2026-09)");
   }
 
-  const filter = { isActive: true };
+  const filter = { isActive: true, companyId };
   if (branchId) filter.branchId = branchId;
   const employees = await Employee.find(filter);
   if (!employees.length) {

@@ -9,7 +9,6 @@ const { createValidators, updateValidators } = require('./validators');
 const { PERMISSIONS } = require('@erp/shared');
 
 router.use(authenticate);
-
 router.get('/', authorize(PERMISSIONS.ROLES_READ), controller.list);
 router.get('/:id', authorize(PERMISSIONS.ROLES_READ), controller.getById);
 router.post('/', createValidators, validate, authorize(PERMISSIONS.ROLES_WRITE), controller.create);

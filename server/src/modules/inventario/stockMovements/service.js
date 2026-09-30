@@ -19,7 +19,7 @@ const { createNotification } = require('../../notificaciones/notifications/servi
  *   5. on low stock (stock <= minStock) emits a real-time 'stock.low'
  *      event to the company room → purchasing alert (Socket.io)
  */
-async function create({ productId, warehouseId, type, quantity, date, reference }) {
+async function create({ productId, warehouseId, type, quantity, date, reference, companyId }) {
   const qty = Number(quantity);
   if (!Number.isInteger(qty) || qty <= 0) {
     throw new ApiError(400, 'quantity must be a positive integer');
@@ -31,10 +31,10 @@ async function create({ productId, warehouseId, type, quantity, date, reference 
     let product;
 
     await session.withTransaction(async () => {
-      product = await Product.findById(productId).session(session);
+      product = await Product.findOne({ _id: productId, companyId }).session(session);
       if (!product) throw new ApiError(404, 'Product not found');
 
-      const warehouse = await Warehouse.findById(warehouseId).session(session);
+      const warehouse = await Warehouse.findById(warehouseId).populate({ path: 'branchId', match: { companyId } }).session(session);
       if (!warehouse) throw new ApiError(404, 'Warehouse not found');
 
       if (type === 'out' && product.stock < qty) {
@@ -98,8 +98,10 @@ async function create({ productId, warehouseId, type, quantity, date, reference 
 }
 
 /** GET /stock-movements — paginated ledger with populated refs. */
-async function list({ productId, warehouseId, page = 1, limit = 20 }) {
+async function list({ productId, warehouseId, companyId, page = 1, limit = 20 }) {
   const query = {};
+  const products = await Product.find({ companyId }).select('_id');
+  query.productId = { $in: products.map((p) => p._id) };
   if (productId) query.productId = productId;
   if (warehouseId) query.warehouseId = warehouseId;
   const skip = (Math.max(1, Number(page)) - 1) * Number(limit);

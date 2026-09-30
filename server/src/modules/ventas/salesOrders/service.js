@@ -38,8 +38,8 @@ async function list({ companyId, status, page = 1, limit = 20 }) {
   return { items, total, page: Number(page), limit: Number(limit) };
 }
 
-async function getById(id) {
-  const so = await SalesOrder.findById(id)
+async function getById(id, companyId) {
+  const so = await SalesOrder.findOne({ _id: id, companyId })
     .populate('customerId', 'name taxId creditLimit')
     .populate('items.productId', 'sku name unit');
   if (!so) throw new ApiError(404, 'Sales order not found');
@@ -50,11 +50,11 @@ async function getById(id) {
 async function create({ customerId, items, date, warehouseId, companyId }) {
   if (!items || !items.length) throw new ApiError(400, 'At least one item is required');
 
-  const customer = await Customer.findById(customerId);
+  const customer = await Customer.findOne({ _id: customerId, companyId });
   if (!customer) throw new ApiError(400, 'customerId does not match an existing customer');
 
   for (const item of items) {
-    const product = await Product.findById(item.productId);
+    const product = await Product.findOne({ _id: item.productId, companyId });
     if (!product) throw new ApiError(400, `productId ${item.productId} does not exist`);
   }
 
@@ -82,14 +82,14 @@ async function create({ customerId, items, date, warehouseId, companyId }) {
  * After commit: emits 'stock.low' events for products that crossed their
  * minimum (Socket.io → purchasing alert).
  */
-async function confirm(id, { warehouseId } = {}) {
+async function confirm(id, { warehouseId, companyId } = {}) {
   const session = await mongoose.startSession();
   try {
     let so;
     const touchedProductIds = [];
 
     await session.withTransaction(async () => {
-      so = await SalesOrder.findById(id).session(session);
+      so = await SalesOrder.findOne({ _id: id, companyId }).session(session);
       if (!so) throw new ApiError(404, 'Sales order not found');
       if (so.status !== 'draft') {
         throw new ApiError(409, `Cannot confirm a sales order in status '${so.status}'`);
@@ -97,7 +97,7 @@ async function confirm(id, { warehouseId } = {}) {
 
       const source = warehouseId || so.warehouseId;
       if (!source) throw new ApiError(400, 'warehouseId is required to confirm the order');
-      const warehouse = await Warehouse.findById(source).session(session);
+      const warehouse = await Warehouse.findOne({ _id: source }).populate({ path: 'branchId', match: { companyId } }).session(session);
       if (!warehouse) throw new ApiError(400, 'warehouseId does not match an existing warehouse');
 
       // --- credit limit check ---------------------------------------
