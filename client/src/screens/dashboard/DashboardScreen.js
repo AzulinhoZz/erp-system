@@ -7,7 +7,10 @@ import {
   StyleSheet,
   RefreshControl,
   useWindowDimensions,
+  Platform,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { useThemeStore } from '../../store/themeStore';
 import { colors, typography, spacing, radius, shadows } from '../../theme';
 import { Screen, Card, KPICard, Badge, Button, AppInput, LoadingState, EmptyState, ErrorBanner } from '../../components/ui';
 import { reportsService } from '../../services/reportsService';
@@ -32,6 +35,9 @@ function getDateRange(days) {
 export default function DashboardScreen({ onNavigate }) {
   const { width } = useWindowDimensions();
   const isCompact = width < 900;
+  const isPhone = width < 600;
+  const themeColors = useThemeStore((s) => s.colors);
+  const isDarkMode = useThemeStore((s) => s.isDarkMode);
 
   const [preset, setPreset] = useState('30d');
   const [dateRange, setDateRange] = useState(getDateRange(30));
@@ -96,13 +102,19 @@ export default function DashboardScreen({ onNavigate }) {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, isPhone && styles.contentPhone]}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={() => loadDashboardData(true)} colors={[colors.primary]} />
       }
     >
+      {/* Liquid Glass ambient background */}
+      <View pointerEvents="none" style={[styles.ambientOrb, styles.ambientOrbOne, { backgroundColor: themeColors.primarySubtle }]} />
+      <View pointerEvents="none" style={[styles.ambientOrb, styles.ambientOrbTwo, { backgroundColor: themeColors.greenSubtle }]} />
+
       {/* Period Filter Bar */}
-      <View style={styles.filterBar}>
+      <View style={[styles.filterBar, { backgroundColor: themeColors.glassBackground, borderColor: themeColors.glassStroke }]}>
+        {Platform.OS === 'ios' ? <BlurView intensity={32} tint={isDarkMode ? 'dark' : 'light'} style={StyleSheet.absoluteFill} /> : null}
+        <View style={styles.glassContent}>
         <View style={styles.presetsRow}>
           {PERIOD_PRESETS.map((p) => {
             const isActive = preset === p.key;
@@ -150,6 +162,7 @@ export default function DashboardScreen({ onNavigate }) {
             <Button title="Filtrar" size="sm" onPress={() => loadDashboardData()} />
           </View>
         </View>
+        </View>
       </View>
 
       <ErrorBanner message={error} onRetry={() => loadDashboardData()} />
@@ -159,7 +172,7 @@ export default function DashboardScreen({ onNavigate }) {
       ) : (
         <>
           {/* Executive KPI Cards Grid */}
-          <View style={styles.kpiGrid}>
+          <View style={[styles.kpiGrid, isPhone && styles.kpiGridPhone]}>
             <KPICard
               title="Ventas Totales"
               value={formatMoney(salesData?.total || 0)}
@@ -353,7 +366,23 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
+    paddingBottom: 110,
+    position: 'relative',
   },
+  contentPhone: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 120,
+  },
+  ambientOrb: {
+    position: 'absolute',
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    opacity: 0.55,
+  },
+  ambientOrbOne: { top: -110, right: -120 },
+  ambientOrbTwo: { top: 390, left: -160 },
   filterBar: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -362,6 +391,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     ...shadows.sm,
+    overflow: 'hidden',
+  },
+  glassContent: {
+    zIndex: 1,
   },
   presetsRow: {
     flexDirection: 'row',
@@ -400,6 +433,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.md,
     marginBottom: spacing.lg,
+  },
+  kpiGridPhone: {
+    flexDirection: 'column',
+    gap: 10,
   },
   kpiIcon: {
     fontSize: typography.sizes.md,
