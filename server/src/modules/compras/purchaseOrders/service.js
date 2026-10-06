@@ -6,6 +6,7 @@ const Supplier = require('../suppliers/model');
 const Product = require('../../inventario/products/model');
 const StockMovement = require('../../inventario/stockMovements/model');
 const Warehouse = require('../../inventario/warehouses/model');
+const Branch = require('../../core/branches/model');
 const { postAutomaticEntry } = require('../../finanzas/journalEntries/service');
 const { ApiError } = require('../../../middlewares/errorHandler');
 
@@ -36,8 +37,8 @@ async function list({ companyId, status, page = 1, limit = 20 }) {
   return { items, total, page: Number(page), limit: Number(limit) };
 }
 
-async function getById(id) {
-  const po = await PurchaseOrder.findById(id)
+async function getById(id, companyId) {
+  const po = await PurchaseOrder.findOne({ _id: id, ...(companyId && { companyId }) })
     .populate('supplierId', 'name taxId')
     .populate('items.productId', 'sku name unit');
   if (!po) throw new ApiError(404, 'Purchase order not found');
@@ -48,11 +49,11 @@ async function getById(id) {
 async function create({ supplierId, items, date, warehouseId, companyId }) {
   if (!items || !items.length) throw new ApiError(400, 'At least one item is required');
 
-  const supplier = await Supplier.findById(supplierId);
+  const supplier = await Supplier.findOne({ _id: supplierId, ...(companyId && { companyId }) });
   if (!supplier) throw new ApiError(400, 'supplierId does not match an existing supplier');
 
   for (const item of items) {
-    const product = await Product.findById(item.productId);
+    const product = await Product.findOne({ _id: item.productId, ...(companyId && { companyId }) });
     if (!product) throw new ApiError(400, `productId ${item.productId} does not exist`);
   }
 
@@ -77,13 +78,13 @@ async function create({ supplierId, items, date, warehouseId, companyId }) {
  *   4. marks the PO as 'received'
  * Stock only increases AFTER a successful commit.
  */
-async function receive(id, { warehouseId } = {}) {
+async function receive(id, { warehouseId, companyId } = {}) {
   const session = await mongoose.startSession();
   try {
     let result;
 
     await session.withTransaction(async () => {
-      const po = await PurchaseOrder.findById(id).session(session);
+      const po = await PurchaseOrder.findOne({ _id: id, ...(companyId && { companyId }) }).session(session);
       if (!po) throw new ApiError(404, 'Purchase order not found');
       if (!['draft', 'confirmed'].includes(po.status)) {
         throw new ApiError(409, `Cannot receive a purchase order in status '${po.status}'`);
@@ -91,7 +92,8 @@ async function receive(id, { warehouseId } = {}) {
 
       const destination = warehouseId || po.warehouseId;
       if (!destination) throw new ApiError(400, 'warehouseId is required to receive the order');
-      const warehouse = await Warehouse.findById(destination).session(session);
+      const allowedBranches = companyId ? await Branch.find({ companyId }).distinct('_id').session(session) : null;
+      const warehouse = await Warehouse.findOne({ _id: destination, ...(allowedBranches && { branchId: { $in: allowedBranches } }) }).session(session);
       if (!warehouse) throw new ApiError(400, 'warehouseId does not match an existing warehouse');
 
       for (const item of po.items) {
@@ -109,7 +111,7 @@ async function receive(id, { warehouseId } = {}) {
           { session }
         );
         await Product.updateOne(
-          { _id: item.productId },
+          { _id: item.productId, ...(companyId && { companyId }) },
           { $inc: { stock: item.quantity } },
           { session }
         );
