@@ -1,21 +1,29 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { useThemeStore } from '../../store/themeStore';
 import { colors, typography, spacing, radius, shadows } from '../../theme';
 
 /**
  * Enterprise Card container.
  */
 export function Card({ children, style, elevation = 'sm', accentColor }) {
+  const isDarkMode = useThemeStore((s) => s.isDarkMode);
+  const themeColors = useThemeStore((s) => s.colors);
   return (
     <View
       style={[
         styles.card,
         shadows[elevation] || shadows.sm,
-        accentColor ? { borderLeftWidth: 4, borderLeftColor: accentColor } : null,
+        { backgroundColor: themeColors.glassBackground || themeColors.surface, borderColor: themeColors.glassStroke || themeColors.border },
+        accentColor ? { borderLeftWidth: 3, borderLeftColor: accentColor } : null,
         style,
       ]}
     >
-      {children}
+      {Platform.OS === 'ios' ? (
+        <BlurView intensity={38} tint={isDarkMode ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+      ) : null}
+      <View style={styles.cardContent}>{children}</View>
     </View>
   );
 }
@@ -75,6 +83,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  cardContent: {
+    flex: 1,
+    zIndex: 1,
   },
   kpiCard: {
     flex: 1,
