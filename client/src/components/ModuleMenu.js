@@ -2,6 +2,7 @@ import React from 'react';
 import { FlatList, TouchableOpacity, Text, View, StyleSheet } from 'react-native';
 import { Screen, EmptyState } from './ui';
 import { useAuthStore } from '../store/authStore';
+import { colors, typography, spacing, radius, shadows } from '../theme';
 
 /**
  * Module menu — first screen of every module stack.
@@ -24,8 +25,9 @@ export default function ModuleMenu({ title, subtitle, items, navigation, onBack 
           keyExtractor={(item) => item.key}
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={styles.row}
+              style={[styles.row, shadows.sm]}
               onPress={() => navigation.navigate(item.screen)}
+              activeOpacity={0.7}
             >
               <View style={{ flex: 1 }}>
                 <Text style={styles.rowTitle}>{item.title}</Text>
@@ -42,16 +44,28 @@ export default function ModuleMenu({ title, subtitle, items, navigation, onBack 
 
 const styles = StyleSheet.create({
   row: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    padding: 16,
-    marginBottom: 10,
+    borderColor: colors.border,
+    padding: spacing.md + 2,
+    marginBottom: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  rowTitle: { fontSize: 16, fontWeight: '600', color: '#0f172a' },
-  rowSubtitle: { fontSize: 13, color: '#64748b', marginTop: 2 },
-  chevron: { fontSize: 22, color: '#94a3b8' },
+  rowTitle: {
+    fontSize: typography.sizes.md,
+    fontWeight: typography.weights.bold,
+    color: colors.text,
+  },
+  rowSubtitle: {
+    fontSize: typography.sizes.xs,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  chevron: {
+    fontSize: typography.sizes.xl,
+    color: colors.textMuted,
+    fontWeight: typography.weights.bold,
+  },
 });

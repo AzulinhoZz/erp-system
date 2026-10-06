@@ -1,22 +1,22 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, View, Text, StyleSheet } from 'react-native';
-import { Screen, Card, AppButton, EmptyState, ErrorBanner } from '../../components/ui';
+import { View, Text, StyleSheet } from 'react-native';
+import { Screen, Button, DataTable, Badge, ErrorBanner } from '../../components/ui';
 import OrderEditor from '../../components/OrderEditor';
 import { salesOrdersService, customersService } from '../../services/resources';
 import { usePermission } from '../../hooks/usePermission';
 import { apiErrorMessage } from '../../services/api';
 import { formatMoney } from '../../utils/money';
+import { colors, typography, spacing } from '../../theme';
 
-const STATUS_LABEL = {
-  draft: 'Borrador',
-  confirmed: 'Confirmada',
-  received: 'Entregada',
-  invoiced: 'Facturada',
-  cancelled: 'Cancelada',
+const STATUS_CONFIG = {
+  draft: { label: 'Borrador', variant: 'warning' },
+  confirmed: { label: 'Confirmada ✓', variant: 'success' },
+  received: { label: 'Entregada', variant: 'info' },
+  invoiced: { label: 'Facturada', variant: 'neutral' },
+  cancelled: { label: 'Cancelada', variant: 'danger' },
 };
 
 export default function SalesOrdersScreen({ navigation }) {
-  // Hooks run unconditionally — no short-circuit before a hook call
   const isSuperAdmin = usePermission('*');
   const hasWrite = usePermission('salesOrders:write');
   const canWrite = isSuperAdmin || hasWrite;
@@ -31,7 +31,7 @@ export default function SalesOrdersScreen({ navigation }) {
     setLoading(true);
     setError('');
     try {
-      const data = await salesOrdersService.list({ limit: 50 });
+      const data = await salesOrdersService.list({ limit: 100 });
       setOrders(data.items || []);
     } catch (err) {
       setError(apiErrorMessage(err));
@@ -59,48 +59,86 @@ export default function SalesOrdersScreen({ navigation }) {
     }
   };
 
+  const columns = [
+    {
+      key: 'status',
+      title: 'Estado',
+      sortable: true,
+      render: (item) => {
+        const conf = STATUS_CONFIG[item.status] || { label: item.status, variant: 'neutral' };
+        return <Badge label={conf.label} variant={conf.variant} dot />;
+      },
+    },
+    {
+      key: 'customerId',
+      title: 'Cliente',
+      sortable: true,
+      render: (item) => (
+        <Text style={styles.customerText}>
+          {item.customerId?.name || 'Cliente'}
+        </Text>
+      ),
+    },
+    {
+      key: 'date',
+      title: 'Fecha / Bodega',
+      sortable: true,
+      render: (item) => (
+        <View>
+          <Text style={styles.dateText}>
+            {item.date ? new Date(item.date).toLocaleDateString('es-MX') : ''} · {item.items?.length || 0} renglón(es)
+          </Text>
+          <Text style={styles.warehouseText}>{item.warehouseId?.name || 'Sin bodega'}</Text>
+        </View>
+      ),
+    },
+    {
+      key: 'total',
+      title: 'Total',
+      sortable: true,
+      align: 'right',
+      render: (item) => (
+        <Text style={styles.totalText}>{formatMoney(item.total)}</Text>
+      ),
+    },
+  ];
+
   return (
     <Screen
-      title="Órdenes de venta"
-      subtitle="Confirmar = valida crédito y stock, sale mercancía"
-      onBack={() => navigation.goBack()}
+      title="Órdenes de Venta"
+      subtitle="Confirmación con validación de crédito y stock disponible"
+      onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
       headerRight={
-        canWrite ? <AppButton title="+ Nueva OV" onPress={() => setEditorOpen(true)} /> : null
+        canWrite ? (
+          <Button title="+ Nueva OV" onPress={() => setEditorOpen(true)} size="md" />
+        ) : null
       }
     >
       <ErrorBanner message={error} />
-      <FlatList
+
+      <DataTable
+        columns={columns}
         data={orders}
-        keyExtractor={(o) => o.id || o._id}
-        refreshing={loading}
-        onRefresh={load}
-        ListEmptyComponent={!loading ? <EmptyState text="No hay órdenes de venta" /> : null}
-        renderItem={({ item }) => (
-          <Card>
-            <View style={styles.row}>
-              <Text style={styles.customer}>{item.customerId?.name || 'Cliente'}</Text>
-              <Text style={styles.total}>{formatMoney(item.total)}</Text>
-            </View>
-            <Text style={styles.meta}>
-              {new Date(item.date).toLocaleDateString('es-MX')} ·{' '}
-              {item.items?.length || 0} renglón(es) ·{' '}
-              {item.warehouseId?.name || 'sin bodega'}
-            </Text>
-            <View style={styles.footer}>
-              <Text style={[styles.status, item.status !== 'draft' && styles.statusOk]}>
-                {STATUS_LABEL[item.status] || item.status}
-              </Text>
-              {canWrite && item.status === 'draft' && (
-                <AppButton
-                  title={busyId === (item.id || item._id) ? 'Confirmando…' : 'Confirmar'}
-                  variant="primary"
-                  disabled={busyId !== null}
-                  onPress={() => confirm(item)}
-                />
-              )}
-            </View>
-          </Card>
-        )}
+        loading={loading}
+        searchable={true}
+        searchPlaceholder="Buscar orden de venta..."
+        emptyText="No hay órdenes de venta registradas"
+        actionHeader="Acciones"
+        renderActions={(item) => {
+          const id = item.id || item._id;
+          if (!canWrite || item.status !== 'draft') return null;
+
+          return (
+            <Button
+              title={busyId === id ? 'Confirmando…' : 'Confirmar'}
+              variant="primary"
+              size="sm"
+              loading={busyId === id}
+              disabled={busyId !== null}
+              onPress={() => confirm(item)}
+            />
+          );
+        }}
       />
 
       <OrderEditor
@@ -116,25 +154,22 @@ export default function SalesOrdersScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  customer: { fontSize: 16, fontWeight: '700', color: '#0f172a', flex: 1 },
-  total: { fontSize: 15, fontWeight: '800', color: '#1d4ed8' },
-  meta: { fontSize: 12, color: '#64748b', marginTop: 4 },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 10,
+  customerText: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.bold,
+    color: colors.text,
   },
-  status: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#92400e',
-    backgroundColor: '#fef3c7',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-    overflow: 'hidden',
+  dateText: {
+    fontSize: typography.sizes.xs,
+    color: colors.textSecondary,
   },
-  statusOk: { color: '#166534', backgroundColor: '#dcfce7' },
+  warehouseText: {
+    fontSize: typography.sizes.xs - 1,
+    color: colors.textMuted,
+  },
+  totalText: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.extrabold,
+    color: colors.primary,
+  },
 });

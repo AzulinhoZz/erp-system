@@ -3,13 +3,15 @@ import { View, Text, StyleSheet } from 'react-native';
 import CrudScreen from '../../components/CrudScreen';
 import { employeesService, branchesService } from '../../services/resources';
 import { formatMoney, toDecimalString, decimalToNumber } from '../../utils/money';
+import { Badge } from '../../components/ui/Badge';
+import { colors, typography, spacing } from '../../theme';
 
 const fields = [
   { name: 'name', label: 'Nombre completo', type: 'text', required: true },
-  { name: 'position', label: 'Puesto', type: 'text', required: true },
+  { name: 'position', label: 'Puesto / Cargo', type: 'text', required: true },
   {
     name: 'branchId',
-    label: 'Sucursal',
+    label: 'Sucursal de adscripción',
     type: 'select',
     options: async () => {
       const data = await branchesService.list();
@@ -17,18 +19,56 @@ const fields = [
       return list.map((b) => ({ label: b.name, value: b.id || b._id }));
     },
   },
-  { name: 'salary', label: 'Salario base (mensual)', type: 'text', placeholder: '0.00', required: true },
+  { name: 'salary', label: 'Salario base mensual ($)', type: 'text', placeholder: '0.00', required: true },
+];
+
+const columns = [
+  {
+    key: 'name',
+    title: 'Empleado',
+    sortable: true,
+    render: (e) => (
+      <View>
+        <Text style={styles.nameText}>{e.name}</Text>
+        <Text style={styles.posText}>{e.position}</Text>
+      </View>
+    ),
+  },
+  {
+    key: 'branchId',
+    title: 'Sucursal',
+    render: (e) => <Badge label={e.branchId?.name || 'Sin sucursal'} variant="info" />,
+  },
+  {
+    key: 'salary',
+    title: 'Salario Base Mensual',
+    sortable: true,
+    align: 'right',
+    render: (e) => <Text style={styles.salaryText}>{formatMoney(e.salary)}</Text>,
+  },
+  {
+    key: 'isActive',
+    title: 'Estado',
+    render: (e) => (
+      <Badge
+        label={e.isActive !== false ? 'Activo' : 'Inactivo'}
+        variant={e.isActive !== false ? 'success' : 'danger'}
+        dot
+      />
+    ),
+  },
 ];
 
 export default function EmployeesScreen({ navigation }) {
   return (
     <CrudScreen
       title="Empleados"
-      subtitle="El salario alimenta la nómina · Decimal128"
+      subtitle="Padrón de colaboradores y salarios base mensuales"
       entityName="empleado"
       service={employeesService}
       fields={fields}
-      onBack={() => navigation.goBack()}
+      columns={columns}
+      onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
       readPermission="employees:read"
       writePermission="employees:write"
       mapToForm={(e) => ({
@@ -41,25 +81,23 @@ export default function EmployeesScreen({ navigation }) {
         ...form,
         salary: toDecimalString(form.salary || 0),
       })}
-      renderRow={(e) => (
-        <View>
-          <View style={styles.row}>
-            <Text style={styles.name}>{e.name}</Text>
-            <Text style={styles.salary}>{formatMoney(e.salary)}</Text>
-          </View>
-          <Text style={styles.meta}>
-            {e.position} · {e.branchId?.name || 'Sin sucursal'}
-            {e.isActive === false ? ' · Inactivo' : ''}
-          </Text>
-        </View>
-      )}
     />
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  name: { fontSize: 16, fontWeight: '700', color: '#0f172a', flex: 1 },
-  salary: { fontSize: 14, fontWeight: '800', color: '#16a34a' },
-  meta: { fontSize: 13, color: '#64748b', marginTop: 4 },
+  nameText: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.bold,
+    color: colors.text,
+  },
+  posText: {
+    fontSize: typography.sizes.xs,
+    color: colors.textSecondary,
+  },
+  salaryText: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.extrabold,
+    color: colors.greenDark,
+  },
 });

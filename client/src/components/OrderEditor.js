@@ -1,38 +1,36 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Modal,
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { AppButton, AppInput, ErrorBanner } from './ui';
+import { Modal, Button, Input, Select, Badge, ErrorBanner } from './ui';
+import { colors, typography, spacing, radius, shadows } from '../theme';
 import { apiErrorMessage } from '../services/api';
 import { productsService, warehousesService } from '../services/resources';
 import { formatMoney, toDecimalString, decimalToNumber } from '../utils/money';
 
 /**
- * OrderEditor — line-item editor shared by purchase orders and sales orders.
- *
- * Partner (supplier/customer) and warehouse are picked with chips, items are
- * added one by one (product + qty + unit price) and the total is previewed
- * client-side; the server recomputes and stores the authoritative total.
+ * Enterprise OrderEditor — line-item editor shared by Purchase and Sales orders.
  */
 export default function OrderEditor({
   visible,
   onClose,
   onSaved,
-  createOrder, // async (payload) => order
-  partnerLabel,
+  createOrder,
+  partnerLabel, // 'Proveedor' | 'Cliente'
   partnerService,
 }) {
   const [partners, setPartners] = useState([]);
   const [products, setProducts] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
+
   const [partnerId, setPartnerId] = useState('');
   const [warehouseId, setWarehouseId] = useState('');
   const [lines, setLines] = useState([]);
+
   const [productId, setProductId] = useState('');
   const [qty, setQty] = useState('1');
   const [price, setPrice] = useState('');
@@ -54,29 +52,13 @@ export default function OrderEditor({
       setQty('1');
       setPrice('');
       try {
-        const p = await partnerService.list({ limit: 100 });
-        if (!alive) return;
-        setPartners(Array.isArray(p) ? p : p.items || []);
-      } catch (err) {
-        if (alive) setError(apiErrorMessage(err));
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [visible, partnerService]);
-
-  // products + warehouses for the line editor
-  useEffect(() => {
-    if (!visible) return;
-    let alive = true;
-    (async () => {
-      try {
-        const [prod, wh] = await Promise.all([
+        const [p, prod, wh] = await Promise.all([
+          partnerService.list({ limit: 100 }),
           productsService.list({ limit: 200 }),
           warehousesService.list(),
         ]);
         if (!alive) return;
+        setPartners(Array.isArray(p) ? p : p.items || []);
         setProducts(prod.items || []);
         setWarehouses(Array.isArray(wh) ? wh : wh.items || []);
       } catch (err) {
@@ -86,13 +68,13 @@ export default function OrderEditor({
     return () => {
       alive = false;
     };
-  }, [visible]);
+  }, [visible, partnerService]);
 
   const addLine = () => {
     const product = products.find((p) => (p.id || p._id) === productId);
     if (!product) return setError('Selecciona un producto');
     const quantity = Number(qty);
-    if (!Number.isInteger(quantity) || quantity <= 0) return setError('Cantidad debe ser entero > 0');
+    if (!Number.isInteger(quantity) || quantity <= 0) return setError('Cantidad debe ser un entero > 0');
     let unitPrice;
     try {
       unitPrice = price !== '' ? toDecimalString(price) : decimalToNumber(product.price).toFixed(2);
@@ -119,9 +101,9 @@ export default function OrderEditor({
 
   const save = async () => {
     setError('');
-    if (!partnerId) return setError(`Selecciona ${partnerLabel.toLowerCase()}`);
+    if (!partnerId) return setError(`Selecciona un ${partnerLabel.toLowerCase()}`);
     if (!warehouseId) return setError('Selecciona la bodega');
-    if (!lines.length) return setError('Agrega al menos un renglón');
+    if (!lines.length) return setError('Agrega al menos un renglón a la orden');
     setSaving(true);
     try {
       await createOrder({
@@ -143,135 +125,205 @@ export default function OrderEditor({
     return undefined;
   };
 
+  const partnerOptions = partners.map((p) => ({
+    label: `${p.name} (RFC: ${p.taxId})`,
+    value: p.id || p._id,
+  }));
+
+  const warehouseOptions = warehouses.map((w) => ({
+    label: `${w.name} (${w.branchId?.name || 'Sucursal'})`,
+    value: w.id || w._id,
+  }));
+
+  const productOptions = products.map((p) => ({
+    label: `${p.sku} — ${p.name} (${formatMoney(p.price)})`,
+    value: p.id || p._id,
+  }));
+
   return (
-    <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.backdrop}>
-        <View style={styles.card}>
-          <Text style={styles.title}>Nueva orden</Text>
-          <ErrorBanner message={error} />
-          <ScrollView>
-            {/* partner */}
-            <Text style={styles.label}>{partnerLabel}</Text>
-            <View style={styles.chips}>
-              {partners.map((p) => {
-                const id = p.id || p._id;
-                const on = partnerId === id;
-                return (
-                  <TouchableOpacity
-                    key={id}
-                    style={[styles.chip, on && styles.chipOn]}
-                    onPress={() => setPartnerId(id)}
-                  >
-                    <Text style={[styles.chipText, on && styles.chipTextOn]}>{p.name}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* warehouse */}
-            <Text style={styles.label}>Bodega</Text>
-            <View style={styles.chips}>
-              {warehouses.map((w) => {
-                const id = w.id || w._id;
-                const on = warehouseId === id;
-                return (
-                  <TouchableOpacity
-                    key={id}
-                    style={[styles.chip, on && styles.chipOn]}
-                    onPress={() => setWarehouseId(id)}
-                  >
-                    <Text style={[styles.chipText, on && styles.chipTextOn]}>{w.name}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* line editor */}
-            <Text style={styles.label}>Producto</Text>
-            <View style={styles.chips}>
-              {products.map((p) => {
-                const id = p.id || p._id;
-                const on = productId === id;
-                return (
-                  <TouchableOpacity
-                    key={id}
-                    style={[styles.chip, on && styles.chipOn]}
-                    onPress={() => {
-                      setProductId(id);
-                      setPrice(decimalToNumber(p.price).toFixed(2));
-                    }}
-                  >
-                    <Text style={[styles.chipText, on && styles.chipTextOn]}>{p.sku}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <View style={styles.lineRow}>
-              <View style={{ flex: 1 }}>
-                <AppInput label="Cantidad" value={qty} onChangeText={setQty} keyboardType="number-pad" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <AppInput label="Precio unit." value={price} onChangeText={setPrice} placeholder="0.00" />
-              </View>
-              <AppButton title="＋" onPress={addLine} />
-            </View>
-
-            {/* lines */}
-            {lines.map((line, index) => (
-              <View key={`${line.productId}-${index}`} style={styles.line}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.lineName}>
-                    {line.sku} — {line.name}
-                  </Text>
-                  <Text style={styles.lineMeta}>
-                    {line.quantity} × {formatMoney(line.unitPrice)} ={' '}
-                    {formatMoney(line.quantity * Number(line.unitPrice))}
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={() => removeLine(index)}>
-                  <Text style={styles.remove}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-
-            <Text style={styles.total}>Total: {formatMoney(total)}</Text>
-          </ScrollView>
-
-          <View style={styles.actions}>
-            <AppButton title="Cancelar" variant="ghost" onPress={onClose} />
-            <AppButton title="Guardar orden" onPress={save} loading={saving} />
+    <Modal
+      visible={visible}
+      onClose={onClose}
+      title={`Nueva Orden de ${partnerLabel === 'Proveedor' ? 'Compra' : 'Venta'}`}
+      subtitle="Captura los renglones de la orden y calcula el total"
+      primaryActionLabel="Guardar Orden"
+      onPrimaryAction={save}
+      primaryLoading={saving}
+      secondaryActionLabel="Cancelar"
+      onSecondaryAction={onClose}
+      maxWidth={700}
+    >
+      <ErrorBanner message={error} />
+      <ScrollView keyboardShouldPersistTaps="handled">
+        {/* Partner & Warehouse Pickers */}
+        <View style={styles.twoCol}>
+          <View style={{ flex: 1 }}>
+            <Select
+              label={partnerLabel}
+              value={partnerId}
+              onSelect={(val) => setPartnerId(val)}
+              options={partnerOptions}
+              placeholder={`Seleccionar ${partnerLabel.toLowerCase()}...`}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Select
+              label="Bodega Origen/Destino"
+              value={warehouseId}
+              onSelect={(val) => setWarehouseId(val)}
+              options={warehouseOptions}
+              placeholder="Seleccionar bodega..."
+            />
           </View>
         </View>
-      </View>
+
+        {/* Line Item Form */}
+        <View style={styles.lineFormCard}>
+          <Text style={styles.sectionTitle}>Agregar Renglón</Text>
+          <Select
+            label="Producto"
+            value={productId}
+            onSelect={(val) => {
+              setProductId(val);
+              const p = products.find((prod) => (prod.id || prod._id) === val);
+              if (p) setPrice(decimalToNumber(p.price).toFixed(2));
+            }}
+            options={productOptions}
+            placeholder="Seleccionar producto..."
+          />
+          <View style={styles.twoCol}>
+            <View style={{ flex: 1 }}>
+              <Input
+                label="Cantidad"
+                value={qty}
+                onChangeText={setQty}
+                keyboardType="number-pad"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Input
+                label="Precio Unitario ($)"
+                value={price}
+                onChangeText={setPrice}
+                placeholder="0.00"
+              />
+            </View>
+            <View style={{ alignSelf: 'flex-end', marginBottom: spacing.md }}>
+              <Button title="＋ Agregar" onPress={addLine} size="md" variant="secondary" />
+            </View>
+          </View>
+        </View>
+
+        {/* Captured Items List */}
+        <Text style={styles.sectionTitle}>Partidas de la Orden ({lines.length})</Text>
+        {lines.length === 0 ? (
+          <Text style={styles.emptyLinesText}>No se han agregado partidas a esta orden.</Text>
+        ) : (
+          lines.map((line, index) => (
+            <View key={`${line.productId}-${index}`} style={styles.lineRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.lineSkuName}>{line.sku} — {line.name}</Text>
+                <Text style={styles.lineMeta}>
+                  {line.quantity} {line.unit || 'pcs'} × {formatMoney(line.unitPrice)}
+                </Text>
+              </View>
+              <Text style={styles.lineTotal}>{formatMoney(line.quantity * Number(line.unitPrice))}</Text>
+              <TouchableOpacity onPress={() => removeLine(index)} style={styles.removeBtn}>
+                <Text style={styles.removeIcon}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
+
+        {/* Order Grand Total Summary */}
+        <View style={styles.totalBanner}>
+          <Text style={styles.totalLabel}>TOTAL ESTIMADO:</Text>
+          <Text style={styles.totalValue}>{formatMoney(total)}</Text>
+        </View>
+      </ScrollView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(15,23,42,0.5)', justifyContent: 'flex-end' },
-  card: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '90%' },
-  title: { fontSize: 18, fontWeight: '700', color: '#0f172a', marginBottom: 10 },
-  label: { fontSize: 13, fontWeight: '600', color: '#334155', marginBottom: 6, marginTop: 6 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
-  chip: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
-  chipOn: { backgroundColor: '#1d4ed8', borderColor: '#1d4ed8' },
-  chipText: { color: '#334155', fontSize: 13 },
-  chipTextOn: { color: '#fff', fontWeight: '600' },
-  lineRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-  line: {
+  twoCol: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  lineFormCard: {
+    backgroundColor: colors.surfaceSelected,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.lg,
+  },
+  sectionTitle: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.bold,
+    color: colors.text,
+    marginBottom: spacing.xs,
+    textTransform: 'uppercase',
+  },
+  emptyLinesText: {
+    fontSize: typography.sizes.xs,
+    color: colors.textMuted,
+    fontStyle: 'italic',
+    marginVertical: spacing.sm,
+  },
+  lineRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 8,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.xs,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
-  lineName: { fontSize: 14, fontWeight: '600', color: '#0f172a' },
-  lineMeta: { fontSize: 12, color: '#64748b', marginTop: 2 },
-  remove: { fontSize: 16, color: '#dc2626', paddingHorizontal: 8 },
-  total: { fontSize: 17, fontWeight: '800', color: '#0f172a', textAlign: 'right', marginVertical: 10 },
-  actions: { flexDirection: 'row', gap: 12, marginTop: 6 },
+  lineSkuName: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.bold,
+    color: colors.text,
+  },
+  lineMeta: {
+    fontSize: typography.sizes.xs,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  lineTotal: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.bold,
+    color: colors.primary,
+    marginRight: spacing.md,
+  },
+  removeBtn: {
+    padding: spacing.xs,
+  },
+  removeIcon: {
+    fontSize: typography.sizes.md,
+    color: colors.danger,
+    fontWeight: typography.weights.bold,
+  },
+  totalBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.primarySubtle,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  totalLabel: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.bold,
+    color: colors.primary,
+  },
+  totalValue: {
+    fontSize: typography.sizes.lg,
+    fontWeight: typography.weights.extrabold,
+    color: colors.primaryDark,
+  },
 });

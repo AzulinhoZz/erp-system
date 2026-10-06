@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import CrudScreen from '../../components/CrudScreen';
 import { accountsService } from '../../services/resources';
+import { Badge } from '../../components/ui/Badge';
+import { colors, typography, spacing } from '../../theme';
 
 const TYPE_OPTIONS = [
   { label: 'Activo', value: 'activo' },
@@ -12,58 +14,71 @@ const TYPE_OPTIONS = [
 ];
 
 const fields = [
-  { name: 'code', label: 'Código (ej. 1100)', type: 'text', required: true },
+  { name: 'code', label: 'Código contable (ej. 1000, 1100)', type: 'text', required: true },
   { name: 'name', label: 'Nombre de la cuenta', type: 'text', required: true },
-  { name: 'type', label: 'Tipo', type: 'select', options: async () => TYPE_OPTIONS },
+  { name: 'type', label: 'Tipo de cuenta', type: 'select', options: async () => TYPE_OPTIONS },
 ];
 
-const TYPE_COLOR = {
-  activo: '#1d4ed8',
-  pasivo: '#dc2626',
-  capital: '#7c3aed',
-  ingreso: '#16a34a',
-  gasto: '#ea580c',
+const TYPE_BADGE_VARIANT = {
+  activo: 'info',
+  pasivo: 'danger',
+  capital: 'neutral',
+  ingreso: 'success',
+  gasto: 'warning',
 };
+
+const columns = [
+  {
+    key: 'code',
+    title: 'Código',
+    sortable: true,
+    render: (account) => <Badge label={account.code} variant="info" />,
+  },
+  {
+    key: 'name',
+    title: 'Nombre de la Cuenta',
+    sortable: true,
+    render: (account) => (
+      <Text style={styles.nameText}>{account.name}</Text>
+    ),
+  },
+  {
+    key: 'type',
+    title: 'Tipo Contable',
+    sortable: true,
+    render: (account) => {
+      const variant = TYPE_BADGE_VARIANT[account.type] || 'neutral';
+      return (
+        <Badge
+          label={(account.type || '').toUpperCase()}
+          variant={variant}
+          dot
+        />
+      );
+    },
+  },
+];
 
 export default function AccountsScreen({ navigation }) {
   return (
     <CrudScreen
-      title="Catálogo de cuentas"
-      subtitle="Por empresa · código único · seed de 10 cuentas base"
+      title="Catálogo de Cuentas"
+      subtitle="Catálogo de cuentas contables por empresa para registro de partida doble"
       entityName="cuenta"
       service={accountsService}
       fields={fields}
-      onBack={() => navigation.goBack()}
+      columns={columns}
+      onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
       readPermission="accounts:read"
       writePermission="accounts:write"
-      renderRow={(account) => (
-        <View style={styles.row}>
-          <Text style={styles.code}>{account.code}</Text>
-          <Text style={styles.name}>{account.name}</Text>
-          <Text style={[styles.type, { color: TYPE_COLOR[account.type] }]}>
-            {(account.type || '').toUpperCase()}
-          </Text>
-        </View>
-      )}
     />
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center' },
-  code: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#1d4ed8',
-    backgroundColor: '#dbeafe',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    overflow: 'hidden',
-    minWidth: 52,
-    textAlign: 'center',
-    marginRight: 10,
+  nameText: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.bold,
+    color: colors.text,
   },
-  name: { flex: 1, fontSize: 15, fontWeight: '600', color: '#0f172a' },
-  type: { fontSize: 11, fontWeight: '800' },
 });

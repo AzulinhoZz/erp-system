@@ -32,6 +32,24 @@ export const useAuthStore = create((set, get) => ({
     ).catch(() => {});
   },
 
+  /** Switch active company context for multi-company authorized users */
+  switchCompany: (newCompany) => {
+    const { accessToken, refreshToken, user } = get();
+    const updatedUser = user
+      ? { ...user, companyId: newCompany._id || newCompany.id }
+      : null;
+    set({ company: newCompany, user: updatedUser });
+    AsyncStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        accessToken,
+        refreshToken,
+        user: updatedUser,
+        company: newCompany,
+      })
+    ).catch(() => {});
+  },
+
   hydrate: async () => {
     if (get().hydrated) return;
     try {

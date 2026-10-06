@@ -1,34 +1,35 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import {
   View,
-  FlatList,
   TouchableOpacity,
   Text,
-  Modal,
   StyleSheet,
   ScrollView,
 } from 'react-native';
-import { Screen, Card, AppButton, Field, EmptyState, ErrorBanner } from './ui';
+import {
+  Screen,
+  Card,
+  Button,
+  Field,
+  EmptyState,
+  ErrorBanner,
+  DataTable,
+  Modal,
+  Badge,
+} from './ui';
+import { colors, typography, spacing, radius } from '../theme';
 import { apiErrorMessage } from '../services/api';
 import { usePermission } from '../hooks/usePermission';
 
 /**
- * Reusable CRUD screen.
- *
- * Config-driven so every module reuses it:
- *   - list via service.list(params)
- *   - create/update via a modal form built from `fields`
- *   - RBAC via readPermission/writePermission (hides UI, API still enforces)
- *
- * fields: [{ name, label, type: 'text'|'email'|'password'|'switch', required,
- *            options?: async () => [{label, value}] }]
- * renderRow: (item, onEdit) => JSX
+ * Reusable Enterprise CRUD screen using DataTable and Modal.
  */
 export default function CrudScreen({
   title,
   subtitle,
   service,
   fields = [],
+  columns,
   renderRow,
   listParams = {},
   entityName = 'registro',
@@ -37,13 +38,10 @@ export default function CrudScreen({
   readPermission,
   writePermission,
   onBack,
-  /** rowActions: (item) => [{ label, variant, visible?, run: async (item) }] */
   rowActions,
-  /** Replace the default "+ Nuevo" behavior (e.g. line-item editor). */
   onCreate,
   createLabel,
 }) {
-  // Hooks always run in the same order (no short-circuit before hooks!)
   const isSuperAdmin = usePermission('*');
   const hasRead = usePermission(readPermission || readPermFor(title));
   const hasWrite = usePermission(writePermission || writePermFor(title));
@@ -54,7 +52,7 @@ export default function CrudScreen({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState(null); // null = create, id = update
+  const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [fieldOptions, setFieldOptions] = useState({});
@@ -77,7 +75,6 @@ export default function CrudScreen({
     load();
   }, [load]);
 
-  // Resolve async select options (e.g. roles list for the user form)
   useEffect(() => {
     let alive = true;
     fields
@@ -145,6 +142,45 @@ export default function CrudScreen({
     }
   };
 
+  // Build default columns if none provided
+  const tableColumns = useMemo(() => {
+    if (columns && columns.length > 0) return columns;
+
+    if (renderRow) {
+      return [
+        {
+          key: 'content',
+          title: entityName.toUpperCase(),
+          render: (item) => renderRow(item),
+        },
+      ];
+    }
+
+    return fields
+      .filter((f) => f.type !== 'password')
+      .map((f) => ({
+        key: f.name,
+        title: f.label,
+        sortable: true,
+        render: (item) => {
+          const val = item[f.name];
+          if (f.type === 'switch') {
+            return (
+              <Badge
+                label={val ? 'Activo' : 'Inactivo'}
+                variant={val ? 'success' : 'danger'}
+                dot
+              />
+            );
+          }
+          if (val && typeof val === 'object') {
+            return <Text style={styles.cellText}>{val.name || val.title || JSON.stringify(val)}</Text>;
+          }
+          return <Text style={styles.cellText}>{val != null ? String(val) : '—'}</Text>;
+        },
+      }));
+  }, [columns, renderRow, fields, entityName]);
+
   return (
     <Screen
       title={title}
@@ -152,14 +188,10 @@ export default function CrudScreen({
       onBack={onBack}
       headerRight={
         canWrite ? (
-          <AppButton
+          <Button
             title={createLabel || '+ Nuevo'}
-            onPress={
-              onCreate ||
-              (() => {
-                openCreate();
-              })
-            }
+            onPress={onCreate || openCreate}
+            size="md"
           />
         ) : null
       }
@@ -167,39 +199,43 @@ export default function CrudScreen({
       <ErrorBanner message={error} />
 
       {canRead ? (
-        <FlatList
+        <DataTable
+          columns={tableColumns}
           data={items}
-          keyExtractor={(item) => item.id || item._id}
-          refreshing={loading}
-          onRefresh={load}
-          ListEmptyComponent={!loading ? <EmptyState text={`No hay ${entityName}s todavía`} /> : null}
-          renderItem={({ item }) => {
+          loading={loading}
+          searchable={true}
+          searchPlaceholder={`Buscar ${entityName}...`}
+          emptyText={`No hay ${entityName}s registrados`}
+          onRowPress={(item) => canWrite && openEdit(item)}
+          renderActions={(item) => {
             const actions = (rowActions ? rowActions(item) : []).filter(
               (a) => a.visible === undefined || a.visible
             );
             return (
-              <TouchableOpacity activeOpacity={0.7} onPress={() => canWrite && openEdit(item)}>
-                <Card>
-                  {renderRow(item)}
-                  {actions.length > 0 && (
-                    <View style={styles.rowActions}>
-                      {actions.map((action) => (
-                        <AppButton
-                          key={action.label}
-                          title={
-                            actionBusy === `${action.label}:${item.id || item._id}`
-                              ? '…'
-                              : action.label
-                          }
-                          variant={action.variant || 'ghost'}
-                          disabled={actionBusy !== null}
-                          onPress={() => runRowAction(action, item)}
-                        />
-                      ))}
-                    </View>
-                  )}
-                </Card>
-              </TouchableOpacity>
+              <View style={styles.actionRow}>
+                {canWrite ? (
+                  <Button
+                    title="Editar"
+                    variant="ghost"
+                    size="sm"
+                    onPress={() => openEdit(item)}
+                  />
+                ) : null}
+                {actions.map((action) => (
+                  <Button
+                    key={action.label}
+                    title={
+                      actionBusy === `${action.label}:${item.id || item._id}`
+                        ? '…'
+                        : action.label
+                    }
+                    variant={action.variant || 'ghost'}
+                    size="sm"
+                    disabled={actionBusy !== null}
+                    onPress={() => runRowAction(action, item)}
+                  />
+                ))}
+              </View>
             );
           }}
         />
@@ -207,63 +243,62 @@ export default function CrudScreen({
         <EmptyState text="No tienes permisos para consultar este módulo" />
       )}
 
-      <Modal visible={modalOpen} animationType="slide" transparent>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              {editing ? `Editar ${entityName}` : `Nuevo ${entityName}`}
-            </Text>
-            <ErrorBanner message={error} />
-            <ScrollView>
-              {fields
-                .filter((f) => f.type !== 'select')
-                .map((field) => (
-                  <Field
-                    key={field.name}
-                    field={{
-                      ...field,
-                      options: undefined,
-                    }}
-                    value={
-                      field.type === 'switch'
-                        ? Boolean(form[field.name])
-                        : String(form[field.name] ?? '')
-                    }
-                    onChangeText={(v) => setField(field.name, v)}
-                    onToggle={() => setField(field.name, !form[field.name])}
-                  />
-                ))}
-              {/* select-type fields rendered as simple option chips */}
-              {fields
-                .filter((f) => f.type === 'select')
-                .map((f) => (
-                  <View key={f.name}>
-                    <Text style={styles.chipLabel}>{f.label}</Text>
-                    <View style={styles.chips}>
-                      {(fieldOptions[f.name] || []).map((opt) => {
-                        const selected = form[f.name] === opt.value;
-                        return (
-                          <TouchableOpacity
-                            key={opt.value}
-                            style={[styles.chip, selected && styles.chipOn]}
-                            onPress={() => setField(f.name, opt.value)}
-                          >
-                            <Text style={[styles.chipText, selected && styles.chipTextOn]}>
-                              {opt.label}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
-                ))}
-            </ScrollView>
-            <View style={styles.modalActions}>
-              <AppButton title="Cancelar" variant="ghost" onPress={() => setModalOpen(false)} />
-              <AppButton title="Guardar" onPress={save} loading={saving} />
-            </View>
-          </View>
-        </View>
+      {/* Form Modal */}
+      <Modal
+        visible={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editing ? `Editar ${entityName}` : `Nuevo ${entityName}`}
+        subtitle="Ingresa la información requerida"
+        primaryActionLabel="Guardar"
+        onPrimaryAction={save}
+        primaryLoading={saving}
+        secondaryActionLabel="Cancelar"
+        onSecondaryAction={() => setModalOpen(false)}
+      >
+        <ErrorBanner message={error} />
+        <ScrollView style={{ maxHeight: 420 }}>
+          {fields
+            .filter((f) => f.type !== 'select')
+            .map((field) => (
+              <Field
+                key={field.name}
+                field={{
+                  ...field,
+                  options: undefined,
+                }}
+                value={
+                  field.type === 'switch'
+                    ? Boolean(form[field.name])
+                    : String(form[field.name] ?? '')
+                }
+                onChangeText={(v) => setField(field.name, v)}
+                onToggle={() => setField(field.name, !form[field.name])}
+              />
+            ))}
+          {fields
+            .filter((f) => f.type === 'select')
+            .map((f) => (
+              <View key={f.name} style={{ marginBottom: spacing.md }}>
+                <Text style={styles.chipLabel}>{f.label}</Text>
+                <View style={styles.chips}>
+                  {(fieldOptions[f.name] || []).map((opt) => {
+                    const selected = form[f.name] === opt.value;
+                    return (
+                      <TouchableOpacity
+                        key={opt.value}
+                        style={[styles.chip, selected && styles.chipOn]}
+                        onPress={() => setField(f.name, opt.value)}
+                      >
+                        <Text style={[styles.chipText, selected && styles.chipTextOn]}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+        </ScrollView>
       </Modal>
     </Screen>
   );
@@ -274,13 +309,13 @@ function defaultForm(item, fields) {
   fields.forEach((f) => {
     const raw = item[f.name];
     if (f.type === 'switch') form[f.name] = Boolean(raw);
-    else if (f.type === 'select') form[f.name] = raw && typeof raw === 'object' ? raw.id || raw._id : raw || '';
+    else if (f.type === 'select')
+      form[f.name] = raw && typeof raw === 'object' ? raw.id || raw._id : raw || '';
     else form[f.name] = raw == null ? '' : String(raw);
   });
   return form;
 }
 
-/** Fallback RBAC mapping when no explicit permission is given. */
 function readPermFor(title) {
   const map = {
     Usuarios: 'users:read',
@@ -291,42 +326,46 @@ function readPermFor(title) {
   return map[title] || '*';
 }
 
-function writePermFor(title) {
-  const map = {
-    Usuarios: 'users:write',
-    Roles: 'roles:write',
-    Empresas: 'companies:write',
-    Sucursales: 'branches:write',
-  };
-  return map[title] || '*';
-}
-
 const styles = StyleSheet.create({
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(15,23,42,0.5)',
-    justifyContent: 'flex-end',
+  cellText: {
+    fontSize: typography.sizes.sm,
+    color: colors.text,
   },
-  modalCard: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    maxHeight: '85%',
+  actionRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    alignItems: 'center',
   },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a', marginBottom: 12 },
-  modalActions: { flexDirection: 'row', gap: 12, marginTop: 8 },
-  rowActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  chipLabel: { fontSize: 13, fontWeight: '600', color: '#334155', marginBottom: 6 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  chipLabel: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.semibold,
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
   chip: {
     borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    borderColor: colors.border,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.surface,
   },
-  chipOn: { backgroundColor: '#1d4ed8', borderColor: '#1d4ed8' },
-  chipText: { color: '#334155', fontSize: 13 },
-  chipTextOn: { color: '#fff', fontWeight: '600' },
+  chipOn: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  chipText: {
+    color: colors.text,
+    fontSize: typography.sizes.xs,
+    fontWeight: typography.weights.medium,
+  },
+  chipTextOn: {
+    color: colors.surface,
+    fontWeight: typography.weights.bold,
+  },
 });
