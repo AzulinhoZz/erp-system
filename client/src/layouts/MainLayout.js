@@ -1,21 +1,11 @@
 import React, { useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  useWindowDimensions,
-  Modal,
-  TouchableOpacity,
-  SafeAreaView,
-} from 'react-native';
+import { View, StyleSheet, useWindowDimensions, Modal, TouchableOpacity, Platform } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeStore } from '../store/themeStore';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 
-/**
- * Main Enterprise Shell Layout for SYS ERP.
- *
- * Combines Sidebar + Header + Main Content Area.
- */
 export function MainLayout({
   children,
   currentRoute = 'Dashboard',
@@ -24,19 +14,17 @@ export function MainLayout({
   unreadNotificationsCount = 0,
 }) {
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isMobile = width < 768;
-
   const colors = useThemeStore((s) => s.colors);
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
-
-  const dynamicStyles = getStyles(colors);
+  const dynamicStyles = getStyles(colors, insets);
 
   return (
-    <SafeAreaView style={dynamicStyles.safeContainer}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={dynamicStyles.safeContainer}>
       <View style={dynamicStyles.shellContainer}>
-        {/* Desktop / Tablet Sidebar */}
         {!isMobile ? (
           <Sidebar
             currentRoute={currentRoute}
@@ -46,14 +34,17 @@ export function MainLayout({
           />
         ) : null}
 
-        {/* Mobile Sidebar Drawer Overlay */}
         {isMobile ? (
           <Modal visible={mobileDrawerOpen} transparent animationType="fade">
-            <TouchableOpacity
-              style={dynamicStyles.drawerBackdrop}
-              activeOpacity={1}
-              onPress={() => setMobileDrawerOpen(false)}
-            >
+            <View style={dynamicStyles.drawerBackdrop}>
+              {Platform.OS === 'ios' ? (
+                <BlurView intensity={45} tint="dark" style={StyleSheet.absoluteFill} />
+              ) : null}
+              <TouchableOpacity
+                style={StyleSheet.absoluteFill}
+                activeOpacity={1}
+                onPress={() => setMobileDrawerOpen(false)}
+              />
               <View style={dynamicStyles.drawerContent}>
                 <Sidebar
                   currentRoute={currentRoute}
@@ -62,11 +53,10 @@ export function MainLayout({
                   onCloseMobileDrawer={() => setMobileDrawerOpen(false)}
                 />
               </View>
-            </TouchableOpacity>
+            </View>
           </Modal>
         ) : null}
 
-        {/* Main Content Column (Header + Screen Area) */}
         <View style={dynamicStyles.mainColumn}>
           <Header
             title={currentRoute}
@@ -83,11 +73,11 @@ export function MainLayout({
   );
 }
 
-const getStyles = (colors) =>
+const getStyles = (colors, insets) =>
   StyleSheet.create({
     safeContainer: {
       flex: 1,
-      backgroundColor: colors.primaryDark,
+      backgroundColor: colors.background,
     },
     shellContainer: {
       flex: 1,
@@ -101,15 +91,21 @@ const getStyles = (colors) =>
     contentArea: {
       flex: 1,
       backgroundColor: colors.background,
+      paddingBottom: Math.max(insets.bottom, 8),
     },
     drawerBackdrop: {
       flex: 1,
-      backgroundColor: colors.overlay,
+      backgroundColor: 'rgba(3, 12, 24, 0.32)',
       flexDirection: 'row',
     },
     drawerContent: {
+      width: '84%',
+      maxWidth: 336,
       height: '100%',
-      backgroundColor: colors.primaryDark,
+      overflow: 'hidden',
+      borderTopRightRadius: 28,
+      borderBottomRightRadius: 28,
+      backgroundColor: 'rgba(5, 31, 52, 0.88)',
     },
   });
 
