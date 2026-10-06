@@ -46,7 +46,7 @@ async function create(data) {
  * (keeps the movement ledger consistent).
  */
 async function update(id, data, companyId) {
-  const { stock, sku, companyId, ...safe } = data;
+  const { stock, sku, companyId: _ignoredCompanyId, ...safe } = data;
   const product = await Product.findOneAndUpdate({ _id: id, ...(companyId && { companyId }) }, safe, {
     new: true,
     runValidators: true,
