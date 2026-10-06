@@ -108,8 +108,25 @@ async function confirm(id, { warehouseId, companyId } = {}) {
       if (limit > 0) {
         const orderTotal = Number(so.total?.$numberDecimal ?? so.total ?? 0);
 
+        // Invoice references salesOrderId (not customerId), so first resolve
+        // this customer's invoiced orders. The previous query matched a field
+        // that does not exist on Invoice and silently under-counted exposure.
+        const customerOrderIds = await SalesOrder.find({
+          customerId: customer._id,
+          companyId: so.companyId,
+          status: 'invoiced',
+        })
+          .distinct('_id')
+          .session(session);
+
         const unpaid = await Invoice.aggregate([
-          { $match: { customerId: customer._id, status: { $in: ['pending', 'overdue'] } } },
+          {
+            $match: {
+              salesOrderId: { $in: customerOrderIds },
+              companyId: so.companyId,
+              status: { $in: ['pending', 'overdue'] },
+            },
+          },
           { $group: { _id: null, sum: { $sum: '$amount' } } },
         ]).session(session);
 
