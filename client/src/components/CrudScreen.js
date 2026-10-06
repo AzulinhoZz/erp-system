@@ -57,6 +57,7 @@ export default function CrudScreen({
   const [saving, setSaving] = useState(false);
   const [fieldOptions, setFieldOptions] = useState({});
   const [actionBusy, setActionBusy] = useState(null);
+  const listParamsKey = JSON.stringify(listParams || {});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -70,7 +71,7 @@ export default function CrudScreen({
     } finally {
       setLoading(false);
     }
-  }, [service, listParams]);
+  }, [service, listParamsKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,7 +89,9 @@ export default function CrudScreen({
     };
     run();
     return () => { cancelled = true; };
-  }, [service, listParams]);
+  // Depend on the serialized value, not the object identity. Many screens pass
+  // an inline/default object, which otherwise causes an endless fetch/render loop.
+  }, [service, listParamsKey]);
 
   useEffect(() => {
     let alive = true;
