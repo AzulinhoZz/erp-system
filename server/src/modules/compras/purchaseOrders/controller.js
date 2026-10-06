@@ -13,7 +13,7 @@ async function list(req, res, next) {
 
 async function getById(req, res, next) {
   try {
-    res.json(await service.getById(req.params.id));
+    res.json(await service.getById(req.params.id, req.user.companyId));
   } catch (err) {
     next(err);
   }
@@ -32,7 +32,7 @@ async function create(req, res, next) {
 /** POST /purchase-orders/:id/receive — integrate with inventory. */
 async function receive(req, res, next) {
   try {
-    res.json(await service.receive(req.params.id, req.body));
+    res.json(await service.receive(req.params.id, { ...req.body, companyId: req.user.companyId }));
   } catch (err) {
     next(err);
   }
