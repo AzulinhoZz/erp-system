@@ -121,7 +121,7 @@ export function Sidebar({
         {!isCollapsed ? (
           <View style={styles.userInfo}>
             <Text style={styles.userName} numberOfLines={1}>{user?.name || 'Usuario'}</Text>
-            <Text style={styles.userRole} numberOfLines={1}>{company?.name || user?.role?.name || 'Empresa'}</Text>
+            <Text style={styles.userRole} numberOfLines={1}>{user?.role?.name || 'Usuario'}</Text>
           </View>
         ) : null}
         {!isCollapsed ? (
