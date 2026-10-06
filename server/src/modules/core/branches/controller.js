@@ -13,7 +13,7 @@ async function list(req, res, next) {
 
 async function getById(req, res, next) {
   try {
-    res.json(await service.getById(req.params.id));
+    res.json(await service.getById(req.params.id, req.user.companyId));
   } catch (err) {
     next(err);
   }
@@ -31,7 +31,7 @@ async function create(req, res, next) {
 
 async function update(req, res, next) {
   try {
-    res.json(await service.update(req.params.id, req.body));
+    res.json(await service.update(req.params.id, req.body, req.user.companyId));
   } catch (err) {
     next(err);
   }
