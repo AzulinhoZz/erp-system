@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontWeight: typography.weights.medium,
   },
-  tableCard: {
+  refreshIndicator: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    justifyContent: 'flex-end',\n    gap: spacing.xs,\n    paddingHorizontal: spacing.sm,\n    paddingVertical: 4,\n  },\n  refreshText: {\n    fontSize: typography.sizes.xs,\n    color: colors.textSecondary,\n  },\n  tableCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     borderWidth: 1,
