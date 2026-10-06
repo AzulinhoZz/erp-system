@@ -63,7 +63,8 @@ export default function CrudScreen({
     setError('');
     try {
       const data = await service.list(listParams);
-      setItems(Array.isArray(data) ? data : data.items || []);
+      // Keep the previous rows visible until a successful response replaces them.
+      setItems(Array.isArray(data) ? data : data?.items || []);
     } catch (err) {
       setError(apiErrorMessage(err));
     } finally {
@@ -72,8 +73,22 @@ export default function CrudScreen({
   }, [service, listParams]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let cancelled = false;
+    const run = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const data = await service.list(listParams);
+        if (!cancelled) setItems(Array.isArray(data) ? data : data?.items || []);
+      } catch (err) {
+        if (!cancelled) setError(apiErrorMessage(err));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    run();
+    return () => { cancelled = true; };
+  }, [service, listParams]);
 
   useEffect(() => {
     let alive = true;
