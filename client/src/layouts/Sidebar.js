@@ -1,19 +1,11 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  Platform,
-} from 'react-native';
-import { colors, typography, spacing, radius, shadows } from '../theme';
+import React from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Platform } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { typography, spacing, radius } from '../theme';
 import { useAuthStore } from '../store/authStore';
+import { useThemeStore } from '../store/themeStore';
 import { Avatar } from '../components/ui/Avatar';
 
-/**
- * Enterprise SYS ERP Navigation Sidebar.
- */
 export function Sidebar({
   currentRoute = 'Dashboard',
   onNavigate,
@@ -25,135 +17,95 @@ export function Sidebar({
   const company = useAuthStore((s) => s.company);
   const logout = useAuthStore((s) => s.logout);
   const can = useAuthStore((s) => s.can);
-
+  const colors = useThemeStore((s) => s.colors);
   const canAccess = (perm) => !perm || can('*') || can(perm);
 
   const navGroups = [
-    {
-      title: 'GENERAL',
-      items: [
-        { key: 'Dashboard', label: 'Dashboard', icon: '📊', screen: 'Dashboard' },
-      ],
-    },
-    {
-      title: 'OPERACIONES',
-      items: [
-        { key: 'Products', label: 'Productos', icon: '📦', screen: 'Products', perm: 'products:read' },
-        { key: 'Warehouses', label: 'Bodegas', icon: '🏭', screen: 'Warehouses', perm: 'stock:read' },
-        { key: 'StockMovements', label: 'Movimientos Stock', icon: '🔄', screen: 'StockMovements', perm: 'stock:read' },
-        { key: 'Suppliers', label: 'Proveedores', icon: '🚚', screen: 'Suppliers', perm: 'suppliers:read' },
-        { key: 'PurchaseOrders', label: 'Órdenes de Compra', icon: '🛒', screen: 'PurchaseOrders', perm: 'purchaseOrders:read' },
-        { key: 'Customers', label: 'Clientes', icon: '👥', screen: 'Customers', perm: 'customers:read' },
-        { key: 'SalesOrders', label: 'Órdenes de Venta', icon: '📑', screen: 'SalesOrders', perm: 'salesOrders:read' },
-        { key: 'Invoices', label: 'Facturas', icon: '🧾', screen: 'Invoices', perm: 'invoices:read' },
-      ],
-    },
-    {
-      title: 'FINANZAS',
-      items: [
-        { key: 'Accounts', label: 'Catálogo Cuentas', icon: '🏛️', screen: 'Accounts', perm: 'accounts:read' },
-        { key: 'JournalEntries', label: 'Pólizas Contables', icon: '📔', screen: 'JournalEntries', perm: 'journalEntries:read' },
-      ],
-    },
-    {
-      title: 'ADMINISTRACIÓN',
-      items: [
-        { key: 'Companies', label: 'Empresas', icon: '🏢', screen: 'Companies', perm: 'companies:read' },
-        { key: 'Branches', label: 'Sucursales', icon: '📍', screen: 'Branches', perm: 'branches:read' },
-        { key: 'Users', label: 'Usuarios', icon: '👤', screen: 'Users', perm: 'users:read' },
-        { key: 'Roles', label: 'Roles y Permisos', icon: '🛡️', screen: 'Roles', perm: 'roles:read' },
-      ],
-    },
-    {
-      title: 'RECURSOS HUMANOS',
-      items: [
-        { key: 'Employees', label: 'Empleados', icon: '💼', screen: 'Employees', perm: 'employees:read' },
-        { key: 'Payroll', label: 'Nómina', icon: '💵', screen: 'Payroll', perm: 'payroll:read' },
-        { key: 'Attendance', label: 'Asistencia', icon: '⏰', screen: 'Attendance', perm: 'attendance:read' },
-      ],
-    },
-    {
-      title: 'ANÁLISIS Y ALERTAS',
-      items: [
-        { key: 'Reports', label: 'Reportes y BI', icon: '📈', screen: 'Reports', perm: 'reports:read' },
-        { key: 'Notifications', label: 'Notificaciones', icon: '🔔', screen: 'Notifications' },
-      ],
-    },
+    { title: 'GENERAL', items: [{ key: 'Dashboard', label: 'Dashboard', icon: '⌂', screen: 'Dashboard' }] },
+    { title: 'OPERACIONES', items: [
+      { key: 'Products', label: 'Productos', icon: '◫', screen: 'Products', perm: 'products:read' },
+      { key: 'Warehouses', label: 'Bodegas', icon: '▤', screen: 'Warehouses', perm: 'stock:read' },
+      { key: 'StockMovements', label: 'Movimientos Stock', icon: '↻', screen: 'StockMovements', perm: 'stock:read' },
+      { key: 'Suppliers', label: 'Proveedores', icon: '▰', screen: 'Suppliers', perm: 'suppliers:read' },
+      { key: 'PurchaseOrders', label: 'Órdenes de Compra', icon: '⌑', screen: 'PurchaseOrders', perm: 'purchaseOrders:read' },
+      { key: 'Customers', label: 'Clientes', icon: '◉', screen: 'Customers', perm: 'customers:read' },
+      { key: 'SalesOrders', label: 'Órdenes de Venta', icon: '▧', screen: 'SalesOrders', perm: 'salesOrders:read' },
+      { key: 'Invoices', label: 'Facturas', icon: '▥', screen: 'Invoices', perm: 'invoices:read' },
+    ]},
+    { title: 'FINANZAS', items: [
+      { key: 'Accounts', label: 'Catálogo Cuentas', icon: '⌂', screen: 'Accounts', perm: 'accounts:read' },
+      { key: 'JournalEntries', label: 'Pólizas Contables', icon: '▣', screen: 'JournalEntries', perm: 'journalEntries:read' },
+    ]},
+    { title: 'ADMINISTRACIÓN', items: [
+      { key: 'Companies', label: 'Empresas', icon: '▦', screen: 'Companies', perm: 'companies:read' },
+      { key: 'Branches', label: 'Sucursales', icon: '⌖', screen: 'Branches', perm: 'branches:read' },
+      { key: 'Users', label: 'Usuarios', icon: '●', screen: 'Users', perm: 'users:read' },
+      { key: 'Roles', label: 'Roles y Permisos', icon: '◇', screen: 'Roles', perm: 'roles:read' },
+    ]},
+    { title: 'RECURSOS HUMANOS', items: [
+      { key: 'Employees', label: 'Empleados', icon: '▱', screen: 'Employees', perm: 'employees:read' },
+      { key: 'Payroll', label: 'Nómina', icon: '$', screen: 'Payroll', perm: 'payroll:read' },
+      { key: 'Attendance', label: 'Asistencia', icon: '◷', screen: 'Attendance', perm: 'attendance:read' },
+    ]},
+    { title: 'ANÁLISIS Y ALERTAS', items: [
+      { key: 'Reports', label: 'Reportes y BI', icon: '⌁', screen: 'Reports', perm: 'reports:read' },
+      { key: 'Notifications', label: 'Notificaciones', icon: '◌', screen: 'Notifications' },
+    ]},
   ];
 
   const handleSelect = (screen) => {
-    if (onNavigate) onNavigate(screen);
-    if (onCloseMobileDrawer) onCloseMobileDrawer();
+    onNavigate?.(screen);
+    onCloseMobileDrawer?.();
   };
+
+  const glass = Platform.OS === 'ios';
 
   return (
     <View style={[styles.container, isCollapsed && styles.collapsedContainer]}>
-      {/* Brand Header */}
+      {glass ? <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFill} /> : null}
       <View style={styles.brandHeader}>
         <View style={styles.logoBadge}>
-          <Text style={styles.logoBadgeText}>SYS</Text>
+          <Text style={styles.logoBadgeText}>S</Text>
         </View>
         {!isCollapsed ? (
           <View style={styles.brandTextContainer}>
             <Text style={styles.brandName}>SYS ERP</Text>
-            <Text style={styles.brandSubtitle}>Integrated Business Solutions</Text>
+            <Text style={styles.brandSubtitle}>{company?.name || 'Integrated Business Solutions'}</Text>
           </View>
         ) : null}
         {onToggleCollapse ? (
-          <TouchableOpacity
-            style={styles.collapseToggle}
-            onPress={onToggleCollapse}
-          >
-            <Text style={styles.collapseToggleText}>
-              {isCollapsed ? '›' : '‹'}
-            </Text>
+          <TouchableOpacity style={styles.collapseToggle} onPress={onToggleCollapse}>
+            <Text style={styles.collapseToggleText}>{isCollapsed ? '›' : '‹'}</Text>
           </TouchableOpacity>
         ) : null}
       </View>
 
-      {/* Navigation Links */}
-      <ScrollView
-        style={styles.menuScroll}
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={styles.searchShell}>
+        <Text style={styles.searchIcon}>⌕</Text>
+        {!isCollapsed ? <Text style={styles.searchPlaceholder}>Buscar módulo...</Text> : null}
+      </View>
+
+      <ScrollView style={styles.menuScroll} contentContainerStyle={styles.menuContent} showsVerticalScrollIndicator={false}>
         {navGroups.map((group) => {
           const visibleItems = group.items.filter((item) => canAccess(item.perm));
-          if (visibleItems.length === 0) return null;
-
+          if (!visibleItems.length) return null;
           return (
             <View key={group.title} style={styles.groupContainer}>
-              {!isCollapsed ? (
-                <Text style={styles.groupTitle}>{group.title}</Text>
-              ) : (
-                <View style={styles.groupDivider} />
-              )}
+              {!isCollapsed ? <Text style={styles.groupTitle}>{group.title}</Text> : <View style={styles.groupDivider} />}
               {visibleItems.map((item) => {
                 const isActive = currentRoute === item.screen;
                 return (
                   <TouchableOpacity
                     key={item.key}
-                    style={[
-                      styles.menuItem,
-                      isActive && styles.menuItemActive,
-                      isCollapsed && styles.menuItemCollapsed,
-                    ]}
+                    style={[styles.menuItem, isActive && styles.menuItemActive, isCollapsed && styles.menuItemCollapsed]}
                     onPress={() => handleSelect(item.screen)}
-                    activeOpacity={0.7}
+                    activeOpacity={0.8}
                   >
-                    <Text style={styles.itemIcon}>{item.icon}</Text>
+                    <View style={[styles.itemIconShell, isActive && styles.itemIconShellActive]}>
+                      <Text style={[styles.itemIcon, isActive && styles.itemIconActive]}>{item.icon}</Text>
+                    </View>
                     {!isCollapsed ? (
-                      <Text
-                        style={[
-                          styles.itemLabel,
-                          isActive && styles.itemLabelActive,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {item.label}
-                      </Text>
-                    ) : null}
-                    {isActive && !isCollapsed ? (
-                      <View style={styles.activeDot} />
+                      <Text style={[styles.itemLabel, isActive && styles.itemLabelActive]} numberOfLines={1}>{item.label}</Text>
                     ) : null}
                   </TouchableOpacity>
                 );
@@ -163,22 +115,18 @@ export function Sidebar({
         })}
       </ScrollView>
 
-      {/* User Footer */}
       <View style={styles.userFooter}>
-        <Avatar name={user?.name || 'Usuario'} size={isCollapsed ? 32 : 36} />
+        {glass ? <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFill} /> : null}
+        <Avatar name={user?.name || 'Usuario'} size={38} />
         {!isCollapsed ? (
           <View style={styles.userInfo}>
-            <Text style={styles.userName} numberOfLines={1}>
-              {user?.name || 'Usuario'}
-            </Text>
-            <Text style={styles.userRole} numberOfLines={1}>
-              {company?.name || user?.role?.name || 'Empresa'}
-            </Text>
+            <Text style={styles.userName} numberOfLines={1}>{user?.name || 'Usuario'}</Text>
+            <Text style={styles.userRole} numberOfLines={1}>{company?.name || user?.role?.name || 'Empresa'}</Text>
           </View>
         ) : null}
         {!isCollapsed ? (
           <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
-            <Text style={styles.logoutIcon}>🚪</Text>
+            <Text style={styles.logoutIcon}>↗</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -188,150 +136,105 @@ export function Sidebar({
 
 const styles = StyleSheet.create({
   container: {
-    width: 250,
-    backgroundColor: colors.primaryDark,
+    width: 280,
     height: '100%',
     flexDirection: 'column',
-    borderRightWidth: 1,
-    borderRightColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(7, 31, 52, 0.92)',
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: 'rgba(255,255,255,0.18)',
+    overflow: 'hidden',
   },
-  collapsedContainer: {
-    width: 68,
-  },
+  collapsedContainer: { width: 76 },
   brandHeader: {
+    minHeight: 78,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
   },
   logoBadge: {
-    backgroundColor: colors.green,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.xs + 2,
-    paddingVertical: spacing.xs,
-    justifyContent: 'center',
+    width: 42, height: 42, borderRadius: 13,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(27,132,255,0.95)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.38)',
+    shadowColor: '#2F8CFF', shadowOpacity: 0.45, shadowRadius: 12, shadowOffset: { width: 0, height: 6 },
+  },
+  logoBadgeText: { color: '#FFF', fontSize: 24, fontWeight: '800' },
+  brandTextContainer: { flex: 1, marginLeft: spacing.sm },
+  brandName: { color: '#FFF', fontSize: typography.sizes.lg, fontWeight: '800', letterSpacing: 0.2 },
+  brandSubtitle: { color: 'rgba(255,255,255,0.66)', fontSize: 11, marginTop: 1 },
+  collapseToggle: { padding: spacing.xs },
+  collapseToggleText: { color: 'rgba(255,255,255,0.7)', fontSize: 24 },
+  searchShell: {
+    height: 44,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    borderRadius: 16,
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
   },
-  logoBadgeText: {
-    color: colors.surface,
-    fontWeight: typography.weights.extrabold,
-    fontSize: typography.sizes.sm,
-    letterSpacing: 0.5,
-  },
-  brandTextContainer: {
-    flex: 1,
-    marginLeft: spacing.xs + 2,
-  },
-  brandName: {
-    color: colors.surface,
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.extrabold,
-    letterSpacing: 0.5,
-  },
-  brandSubtitle: {
-    color: colors.greenLight,
-    fontSize: typography.sizes.xs - 2,
-    fontWeight: typography.weights.medium,
-  },
-  collapseToggle: {
-    padding: spacing.xs,
-    marginLeft: spacing.xs,
-  },
-  collapseToggleText: {
-    color: colors.textMuted,
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.bold,
-  },
-  menuScroll: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-  },
-  groupContainer: {
-    marginBottom: spacing.md,
-  },
+  searchIcon: { color: '#D7E6F4', fontSize: 18, marginRight: spacing.sm },
+  searchPlaceholder: { color: 'rgba(255,255,255,0.62)', fontSize: 13 },
+  menuScroll: { flex: 1 },
+  menuContent: { paddingBottom: spacing.lg },
+  groupContainer: { marginBottom: spacing.sm },
   groupTitle: {
-    fontSize: typography.sizes.xs - 2,
-    fontWeight: typography.weights.bold,
-    color: colors.textMuted,
-    letterSpacing: 1,
-    paddingHorizontal: spacing.md,
+    color: 'rgba(181,205,224,0.62)',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.xs,
-    textTransform: 'uppercase',
   },
-  groupDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    marginVertical: spacing.xs,
-  },
+  groupDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: spacing.xs },
   menuItem: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    marginHorizontal: spacing.xs,
-    borderRadius: radius.md,
+    marginHorizontal: spacing.sm,
+    marginVertical: 2,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 15,
   },
-  menuItemCollapsed: {
-    justifyContent: 'center',
-    paddingHorizontal: 0,
-  },
+  menuItemCollapsed: { justifyContent: 'center', paddingHorizontal: 0 },
   menuItemActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderLeftWidth: 3,
-    borderLeftColor: colors.green,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
   },
-  itemIcon: {
-    fontSize: typography.sizes.md,
-    width: 24,
-    textAlign: 'center',
+  itemIconShell: {
+    width: 30, height: 30, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
-  itemLabel: {
-    fontSize: typography.sizes.sm,
-    color: '#94A3B8',
-    fontWeight: typography.weights.medium,
-    flex: 1,
-    marginLeft: spacing.sm,
-  },
-  itemLabelActive: {
-    color: colors.surface,
-    fontWeight: typography.weights.bold,
-  },
-  activeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.green,
-  },
+  itemIconShellActive: { backgroundColor: 'rgba(255,255,255,0.18)' },
+  itemIcon: { color: '#AFC8DB', fontSize: 16, fontWeight: '700' },
+  itemIconActive: { color: '#FFF' },
+  itemLabel: { flex: 1, marginLeft: spacing.sm, color: '#B7C9D8', fontSize: 13, fontWeight: '500' },
+  itemLabelActive: { color: '#FFF', fontWeight: '700' },
   userFooter: {
+    minHeight: 70,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderTopColor: 'rgba(255,255,255,0.10)',
+    overflow: 'hidden',
   },
-  userInfo: {
-    flex: 1,
-    marginLeft: spacing.sm,
-  },
-  userName: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.semibold,
-    color: colors.surface,
-  },
-  userRole: {
-    fontSize: typography.sizes.xs - 1,
-    color: colors.textMuted,
-  },
+  userInfo: { flex: 1, marginLeft: spacing.sm },
+  userName: { color: '#FFF', fontSize: 13, fontWeight: '700' },
+  userRole: { color: 'rgba(255,255,255,0.60)', fontSize: 11, marginTop: 1 },
   logoutBtn: {
-    padding: spacing.xs,
+    width: 34, height: 34, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  logoutIcon: {
-    fontSize: typography.sizes.md,
-  },
+  logoutIcon: { color: '#FF6B6B', fontSize: 16, fontWeight: '700' },
 });
 
 export default Sidebar;
