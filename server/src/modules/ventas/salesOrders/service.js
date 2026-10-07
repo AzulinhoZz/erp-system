@@ -7,6 +7,7 @@ const Invoice = require('../invoices/model');
 const Product = require('../../inventario/products/model');
 const StockMovement = require('../../inventario/stockMovements/model');
 const Warehouse = require('../../inventario/warehouses/model');
+const Branch = require('../../core/branches/model');
 const { ApiError } = require('../../../middlewares/errorHandler');
 const { emitToCompany } = require('../../../sockets');
 const { createNotification } = require('../../notificaciones/notifications/service');
@@ -38,8 +39,8 @@ async function list({ companyId, status, page = 1, limit = 20 }) {
   return { items, total, page: Number(page), limit: Number(limit) };
 }
 
-async function getById(id) {
-  const so = await SalesOrder.findById(id)
+async function getById(id, companyId) {
+  const so = await SalesOrder.findOne({ _id: id, ...(companyId && { companyId }) })
     .populate('customerId', 'name taxId creditLimit')
     .populate('items.productId', 'sku name unit');
   if (!so) throw new ApiError(404, 'Sales order not found');
@@ -50,11 +51,11 @@ async function getById(id) {
 async function create({ customerId, items, date, warehouseId, companyId }) {
   if (!items || !items.length) throw new ApiError(400, 'At least one item is required');
 
-  const customer = await Customer.findById(customerId);
+  const customer = await Customer.findOne({ _id: customerId, ...(companyId && { companyId }) });
   if (!customer) throw new ApiError(400, 'customerId does not match an existing customer');
 
   for (const item of items) {
-    const product = await Product.findById(item.productId);
+    const product = await Product.findOne({ _id: item.productId, ...(companyId && { companyId }) });
     if (!product) throw new ApiError(400, `productId ${item.productId} does not exist`);
   }
 
@@ -82,14 +83,14 @@ async function create({ customerId, items, date, warehouseId, companyId }) {
  * After commit: emits 'stock.low' events for products that crossed their
  * minimum (Socket.io → purchasing alert).
  */
-async function confirm(id, { warehouseId } = {}) {
+async function confirm(id, { warehouseId, companyId, userId } = {}) {
   const session = await mongoose.startSession();
   try {
     let so;
     const touchedProductIds = [];
 
     await session.withTransaction(async () => {
-      so = await SalesOrder.findById(id).session(session);
+      so = await SalesOrder.findOne({ _id: id, ...(companyId && { companyId }) }).session(session);
       if (!so) throw new ApiError(404, 'Sales order not found');
       if (so.status !== 'draft') {
         throw new ApiError(409, `Cannot confirm a sales order in status '${so.status}'`);
@@ -97,17 +98,35 @@ async function confirm(id, { warehouseId } = {}) {
 
       const source = warehouseId || so.warehouseId;
       if (!source) throw new ApiError(400, 'warehouseId is required to confirm the order');
-      const warehouse = await Warehouse.findById(source).session(session);
+      const allowedBranches = companyId ? await Branch.find({ companyId }).distinct('_id').session(session) : null;
+      const warehouse = await Warehouse.findOne({ _id: source, ...(allowedBranches && { branchId: { $in: allowedBranches } }) }).session(session);
       if (!warehouse) throw new ApiError(400, 'warehouseId does not match an existing warehouse');
 
       // --- credit limit check ---------------------------------------
-      const customer = await Customer.findById(so.customerId).session(session);
+      const customer = await Customer.findOne({ _id: so.customerId, ...(companyId && { companyId }) }).session(session);
       const limit = Number(customer.creditLimit?.$numberDecimal ?? customer.creditLimit ?? 0);
       if (limit > 0) {
         const orderTotal = Number(so.total?.$numberDecimal ?? so.total ?? 0);
 
+        // Invoice references salesOrderId (not customerId), so first resolve
+        // this customer's invoiced orders. The previous query matched a field
+        // that does not exist on Invoice and silently under-counted exposure.
+        const customerOrderIds = await SalesOrder.find({
+          customerId: customer._id,
+          companyId: so.companyId,
+          status: 'invoiced',
+        })
+          .distinct('_id')
+          .session(session);
+
         const unpaid = await Invoice.aggregate([
-          { $match: { customerId: customer._id, status: { $in: ['pending', 'overdue'] } } },
+          {
+            $match: {
+              salesOrderId: { $in: customerOrderIds },
+              companyId: so.companyId,
+              status: { $in: ['pending', 'overdue'] },
+            },
+          },
           { $group: { _id: null, sum: { $sum: '$amount' } } },
         ]).session(session);
 
@@ -135,7 +154,11 @@ async function confirm(id, { warehouseId } = {}) {
 
       // --- stock validation + movements -----------------------------
       for (const item of so.items) {
-        const product = await Product.findById(item.productId).session(session);
+        const product = await Product.findOne({
+          _id: item.productId,
+          ...(companyId && { companyId }),
+          isActive: { $ne: false },
+        }).session(session);
         if (!product) throw new ApiError(400, `productId ${item.productId} does not exist`);
         if (product.stock < item.quantity) {
           throw new ApiError(
@@ -149,19 +172,26 @@ async function confirm(id, { warehouseId } = {}) {
             {
               productId: item.productId,
               warehouseId: source,
+              companyId: product.companyId,
+              userId,
               type: 'out',
               quantity: item.quantity,
+              previousStock: product.stock,
+              newStock: product.stock - item.quantity,
               date: new Date(),
               reference: `SO-${String(so._id).slice(-6).toUpperCase()}`,
             },
           ],
           { session }
         );
-        await Product.updateOne(
-          { _id: item.productId },
+        const stockResult = await Product.updateOne(
+          { _id: item.productId, ...(companyId && { companyId }), stock: { $gte: item.quantity } },
           { $inc: { stock: -item.quantity } },
           { session }
         );
+        if (stockResult.matchedCount !== 1) {
+          throw new ApiError(409, `Insufficient stock for ${product.sku}`);
+        }
         touchedProductIds.push(item.productId);
       }
 

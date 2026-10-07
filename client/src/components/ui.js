@@ -2,19 +2,26 @@ import React from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
 } from 'react-native';
+import { colors, typography, spacing, radius, shadows } from '../theme';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Card as CustomCard } from './ui/Card';
+import { EmptyState as CustomEmptyState, ErrorBanner as CustomErrorBanner } from './ui/States';
+
+// Re-export all new design system primitives
+export * from './ui/index';
+export * from '../theme';
 
 /** Screen container with title, optional subtitle and optional back button. */
-export function Screen({ title, subtitle, children, headerRight, onBack }) {
+export function Screen({ title, subtitle, children, headerRight, onBack, style }) {
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, style]}>
       <View style={styles.header}>
         {onBack ? (
-          <TouchableOpacity onPress={onBack} style={styles.back}>
+          <TouchableOpacity onPress={onBack} style={styles.back} activeOpacity={0.7}>
             <Text style={styles.backText}>‹ Atrás</Text>
           </TouchableOpacity>
         ) : null}
@@ -29,35 +36,26 @@ export function Screen({ title, subtitle, children, headerRight, onBack }) {
   );
 }
 
-export function Card({ children, style }) {
-  return <View style={[styles.card, style]}>{children}</View>;
+export function Card({ children, style, accentColor }) {
+  return <CustomCard style={style} accentColor={accentColor}>{children}</CustomCard>;
 }
 
-export function AppButton({ title, onPress, variant = 'primary', disabled, loading }) {
+export function AppButton({ title, onPress, variant = 'primary', disabled, loading, size = 'md', style }) {
   return (
-    <TouchableOpacity
-      style={[styles.button, styles[variant], disabled && styles.buttonDisabled]}
+    <Button
+      title={title}
       onPress={onPress}
-      disabled={disabled || loading}
-    >
-      {loading ? (
-        <ActivityIndicator color="#fff" />
-      ) : (
-        <Text style={[styles.buttonText, variant === 'ghost' && styles.buttonGhostText]}>
-          {title}
-        </Text>
-      )}
-    </TouchableOpacity>
+      variant={variant}
+      disabled={disabled}
+      loading={loading}
+      size={size}
+      style={style}
+    />
   );
 }
 
 export function AppInput({ label, ...props }) {
-  return (
-    <View style={styles.inputGroup}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
-      <TextInput style={styles.input} placeholderTextColor="#94a3b8" {...props} />
-    </View>
-  );
+  return <Input label={label} {...props} />;
 }
 
 /** Renders a field config: text | password | switch | select-as-picker-text. */
@@ -69,6 +67,7 @@ export function Field({ field, value, onChangeText, onToggle }) {
         <TouchableOpacity
           onPress={onToggle}
           style={[styles.switch, value && styles.switchOn]}
+          activeOpacity={0.8}
         >
           <Text style={styles.switchText}>{value ? 'Sí' : 'No'}</Text>
         </TouchableOpacity>
@@ -88,81 +87,30 @@ export function Field({ field, value, onChangeText, onToggle }) {
   );
 }
 
-export function EmptyState({ text }) {
-  return (
-    <View style={styles.empty}>
-      <Text style={styles.emptyText}>{text}</Text>
-    </View>
-  );
+export function EmptyState({ text, title, actionLabel, onAction }) {
+  return <CustomEmptyState text={text} title={title} actionLabel={actionLabel} onAction={onAction} />;
 }
 
-export function ErrorBanner({ message }) {
-  if (!message) return null;
-  return (
-    <View style={styles.error}>
-      <Text style={styles.errorText}>{message}</Text>
-    </View>
-  );
+export function ErrorBanner({ message, onRetry }) {
+  return <CustomErrorBanner message={message} onRetry={onRetry} />;
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#f1f5f9', padding: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  back: { marginRight: 10, alignSelf: 'center' },
-  backText: { fontSize: 16, color: '#1d4ed8', fontWeight: '600' },
-  title: { fontSize: 22, fontWeight: '700', color: '#0f172a' },
-  subtitle: { fontSize: 13, color: '#64748b', marginTop: 2 },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  button: {
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primary: { backgroundColor: '#1d4ed8' },
-  ghost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#cbd5e1' },
-  danger: { backgroundColor: '#dc2626' },
-  buttonDisabled: { opacity: 0.5 },
-  buttonText: { color: '#fff', fontWeight: '600', fontSize: 15 },
-  buttonGhostText: { color: '#334155' },
-  inputGroup: { marginBottom: 12 },
-  label: { fontSize: 13, fontWeight: '600', color: '#334155', marginBottom: 4 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: '#0f172a',
-    backgroundColor: '#fff',
-  },
+  screen: { flex: 1, backgroundColor: colors.background, padding: spacing.lg },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg },
+  back: { marginRight: spacing.md, alignSelf: 'center' },
+  backText: { fontSize: typography.sizes.md, color: colors.primary, fontWeight: typography.weights.semibold },
+  title: { fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.text },
+  subtitle: { fontSize: typography.sizes.xs, color: colors.textSecondary, marginTop: 2 },
+  inputGroup: { marginBottom: spacing.md },
+  label: { fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.text, marginBottom: spacing.xs },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   switch: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: '#cbd5e1',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radius.full,
+    backgroundColor: colors.borderDark,
   },
-  switchOn: { backgroundColor: '#16a34a' },
-  switchText: { color: '#fff', fontWeight: '600' },
-  empty: { padding: 32, alignItems: 'center' },
-  emptyText: { color: '#64748b', fontSize: 15 },
-  error: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#fecaca',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 12,
-  },
-  errorText: { color: '#b91c1c', fontSize: 14 },
+  switchOn: { backgroundColor: colors.green },
+  switchText: { color: colors.surface, fontWeight: typography.weights.bold, fontSize: typography.sizes.xs },
 });

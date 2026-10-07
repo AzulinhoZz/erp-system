@@ -11,4 +11,8 @@ const refreshValidators = [
   body('refreshToken').isString().notEmpty().withMessage('Refresh token is required'),
 ];
 
-module.exports = { loginValidators, refreshValidators };
+const switchCompanyValidators = [
+  body('companyId').isMongoId().withMessage('companyId must be a valid id'),
+];
+
+module.exports = { loginValidators, refreshValidators, switchCompanyValidators };

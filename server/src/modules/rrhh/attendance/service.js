@@ -40,7 +40,7 @@ async function list({ companyId, date, employeeId, page = 1, limit = 50 }) {
  * failing on the unique (employeeId, date) index.
  */
 async function create({ employeeId, date, checkIn, checkOut, companyId }) {
-  const employee = await Employee.findById(employeeId);
+  const employee = await Employee.findOne({ _id: employeeId, ...(companyId && { companyId }) });
   if (!employee) throw new ApiError(404, 'Employee not found');
 
   const day = startOfDay(date || new Date());
@@ -61,11 +61,12 @@ async function create({ employeeId, date, checkIn, checkOut, companyId }) {
 }
 
 /** PUT /attendance/:id — close the shift (checkOut). */
-async function update(id, data) {
+async function update(id, data, companyId) {
   const allowed = {};
   if (data.checkIn !== undefined) allowed.checkIn = data.checkIn;
   if (data.checkOut !== undefined) allowed.checkOut = data.checkOut;
-  const record = await Attendance.findByIdAndUpdate(id, allowed, {
+  const employees = companyId ? await Employee.find({ companyId }).distinct('_id') : null;
+  const record = await Attendance.findOneAndUpdate({ _id: id, ...(employees && { employeeId: { $in: employees } }) }, allowed, {
     new: true,
     runValidators: true,
   });

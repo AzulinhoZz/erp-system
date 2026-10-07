@@ -22,6 +22,10 @@ function resource(path) {
       const { data } = await api.put(`/${path}/${id}`, body);
       return data;
     },
+    delete: async (id) => {
+      const { data } = await api.delete(`/${path}/${id}`);
+      return data;
+    },
   };
 }
 
@@ -35,6 +39,10 @@ export const branchesService = resource('branches');
 export const productsService = resource('products');
 export const warehousesService = resource('warehouses');
 export const stockMovementsService = resource('stock-movements');
+stockMovementsService.reverse = async (id, body = {}) => {
+  const { data } = await api.post(`/stock-movements/${id}/reverse`, body);
+  return data;
+};
 
 // Compras
 export const suppliersService = resource('suppliers');

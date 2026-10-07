@@ -1,14 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { FlatList, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Screen, Card, AppButton, EmptyState, ErrorBanner } from '../../components/ui';
+import { Screen, Card, Button, Badge, EmptyState, ErrorBanner } from '../../components/ui';
 import { notificationsService } from '../../services/resources';
 import { onEvent, connectSocket } from '../../services/sockets';
 import { apiErrorMessage } from '../../services/api';
+import { colors, typography, spacing } from '../../theme';
 
 /**
  * Notifications — persisted list + LIVE events over Socket.io.
- * While the screen is open, `stock.low` events arrive in real time and are
- * prepended to the list (and refreshed from the server on reconnect).
  */
 export default function NotificationsScreen({ navigation }) {
   const [items, setItems] = useState([]);
@@ -42,8 +41,8 @@ export default function NotificationsScreen({ navigation }) {
         {
           id: `live-${Date.now()}`,
           type: 'alert',
-          title: 'Stock bajo',
-          message: `${payload.sku} — ${payload.name}: quedan ${payload.stock} (mín. ${payload.minStock})`,
+          title: 'Stock Bajo de Producto',
+          message: `${payload.sku} — ${payload.name}: quedan ${payload.stock} unidades (mínimo: ${payload.minStock})`,
           date: payload.date || new Date().toISOString(),
           read: false,
           live: true,
@@ -90,9 +89,9 @@ export default function NotificationsScreen({ navigation }) {
   return (
     <Screen
       title={`Notificaciones${unread ? ` (${unread} sin leer)` : ''}`}
-      subtitle={live ? 'Conectado en tiempo real (Socket.io)' : 'Tiempo real no disponible'}
-      onBack={() => navigation.goBack()}
-      headerRight={<AppButton title="Leer todas" variant="ghost" onPress={markAll} />}
+      subtitle={live ? 'Conectado en tiempo real (Socket.io) · SYS ERP Live' : 'Canal en tiempo real no disponible'}
+      onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+      headerRight={<Button title="Marcar todas como leídas" variant="ghost" size="sm" onPress={markAll} />}
     >
       <ErrorBanner message={error} />
       <FlatList
@@ -100,10 +99,10 @@ export default function NotificationsScreen({ navigation }) {
         keyExtractor={(n) => String(n.id || n._id)}
         refreshing={loading}
         onRefresh={load}
-        ListEmptyComponent={!loading ? <EmptyState text="Sin notificaciones" /> : null}
+        ListEmptyComponent={!loading ? <EmptyState title="Sin notificaciones" text="No hay alertas ni mensajes pendientes en el sistema." /> : null}
         renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => markRead(item)}>
-            <Card>
+          <TouchableOpacity onPress={() => markRead(item)} activeOpacity={0.8}>
+            <Card style={!item.read ? styles.unreadCard : null}>
               <View style={styles.row}>
                 <View
                   style={[
@@ -111,24 +110,28 @@ export default function NotificationsScreen({ navigation }) {
                     {
                       backgroundColor:
                         item.type === 'alert'
-                          ? '#dc2626'
+                          ? colors.danger
                           : item.type === 'success'
-                            ? '#16a34a'
-                            : '#1d4ed8',
+                          ? colors.green
+                          : colors.primary,
                     },
                   ]}
                 />
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.title, !item.read && styles.unread]}>
-                    {item.title}
-                    {item.live ? '  ● en vivo' : ''}
-                  </Text>
+                  <View style={styles.titleRow}>
+                    <Text style={[styles.title, !item.read && styles.unreadTitle]}>
+                      {item.title}
+                    </Text>
+                    {item.live ? (
+                      <Badge label="● en vivo" variant="danger" size="sm" style={{ marginLeft: spacing.xs }} />
+                    ) : null}
+                  </View>
                   {item.message ? <Text style={styles.message}>{item.message}</Text> : null}
                   <Text style={styles.date}>
                     {item.date ? new Date(item.date).toLocaleString('es-MX') : ''}
                   </Text>
                 </View>
-                {!item.read && <Text style={styles.badge}>Nuevo</Text>}
+                {!item.read ? <Badge label="Nuevo" variant="info" size="sm" /> : null}
               </View>
             </Card>
           </TouchableOpacity>
@@ -139,20 +142,15 @@ export default function NotificationsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  dot: { width: 10, height: 10, borderRadius: 5, marginTop: 6 },
-  title: { fontSize: 15, color: '#334155' },
-  unread: { fontWeight: '800', color: '#0f172a' },
-  message: { fontSize: 13, color: '#475569', marginTop: 2 },
-  date: { fontSize: 11, color: '#94a3b8', marginTop: 4 },
-  badge: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#1d4ed8',
-    backgroundColor: '#dbeafe',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-    overflow: 'hidden',
+  unreadCard: {
+    backgroundColor: colors.surfaceSelected,
+    borderColor: colors.primary,
   },
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  dot: { width: 10, height: 10, borderRadius: 5, marginTop: 6 },
+  titleRow: { flexDirection: 'row', alignItems: 'center' },
+  title: { fontSize: typography.sizes.sm, color: colors.textSecondary },
+  unreadTitle: { fontWeight: typography.weights.bold, color: colors.text },
+  message: { fontSize: typography.sizes.xs, color: colors.textSecondary, marginTop: 2 },
+  date: { fontSize: typography.sizes.xs - 2, color: colors.textMuted, marginTop: 4 },
 });

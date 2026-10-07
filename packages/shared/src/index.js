@@ -109,7 +109,7 @@ const DEFAULT_ROLES = [
 ];
 
 /** Enums used by several modules. */
-const STOCK_MOVEMENT_TYPES = ['in', 'out'];
+const STOCK_MOVEMENT_TYPES = ['in', 'out', 'adjustment'];
 const ORDER_STATUS = ['draft', 'confirmed', 'received', 'invoiced', 'cancelled'];
 const INVOICE_STATUS = ['pending', 'paid', 'overdue', 'cancelled'];
 const ACCOUNT_TYPES = ['activo', 'pasivo', 'capital', 'ingreso', 'gasto'];

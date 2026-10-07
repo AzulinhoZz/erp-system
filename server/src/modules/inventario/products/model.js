@@ -19,6 +19,7 @@ const productSchema = new mongoose.Schema(
     price: { type: mongoose.Schema.Types.Decimal128, required: true, default: '0' },
     stock: { type: Number, default: 0, min: 0 },
     minStock: { type: Number, default: 0, min: 0 },
+    isActive: { type: Boolean, default: true },
     companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', required: true },
   },
   { timestamps: true }

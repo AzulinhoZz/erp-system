@@ -1,11 +1,35 @@
 import { create } from 'zustand';
+import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = 'erp.auth';
+const storage = Platform.OS === 'web' ? AsyncStorage : SecureStore;
+
+function readSession() {
+  return Platform.OS === 'web'
+    ? storage.getItem(STORAGE_KEY)
+    : storage.getItemAsync(STORAGE_KEY);
+}
+
+function writeSession(session) {
+  const value = JSON.stringify(session);
+  return Platform.OS === 'web'
+    ? storage.setItem(STORAGE_KEY, value)
+    : storage.setItemAsync(STORAGE_KEY, value, {
+      keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK,
+    });
+}
+
+function removeSession() {
+  return Platform.OS === 'web'
+    ? storage.removeItem(STORAGE_KEY)
+    : storage.deleteItemAsync(STORAGE_KEY);
+}
 
 /**
- * Auth store (Zustand). Tokens are persisted in AsyncStorage so the session
- * survives app restarts on every platform (RN + RNW use the same API).
+ * Native sessions use Keychain/Keystore-backed SecureStore. Web retains
+ * AsyncStorage because Expo SecureStore is not available in browsers.
  */
 export const useAuthStore = create((set, get) => ({
   accessToken: null,
@@ -13,43 +37,90 @@ export const useAuthStore = create((set, get) => ({
   user: null, // { id, name, email, companyId, role: { name, permissions[] } }
   company: null,
   hydrated: false,
+  persistenceError: null,
 
-  setSession: ({ accessToken, refreshToken, user, company }) => {
-    set({ accessToken, refreshToken, user: user ?? get().user, company: company ?? get().company });
-    AsyncStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ accessToken, refreshToken, user, company })
-    ).catch(() => {});
+  setSession: async ({ accessToken, refreshToken, user, company }) => {
+    const session = {
+      accessToken,
+      refreshToken,
+      user: user ?? get().user,
+      company: company ?? get().company,
+    };
+    try {
+      await writeSession(session);
+      set({ ...session, persistenceError: null });
+    } catch {
+      set({ persistenceError: 'No se pudo guardar la sesión de forma segura.' });
+      throw new Error('No se pudo guardar la sesión de forma segura.');
+    }
   },
 
   /** Rotates tokens without touching the stored user profile. */
-  setTokens: ({ accessToken, refreshToken }) => {
+  setTokens: async ({ accessToken, refreshToken }) => {
     const { user, company } = get();
-    set({ accessToken, refreshToken });
-    AsyncStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ accessToken, refreshToken, user, company })
-    ).catch(() => {});
+    const session = { accessToken, refreshToken, user, company };
+    try {
+      await writeSession(session);
+      set({ ...session, persistenceError: null });
+    } catch {
+      set({ persistenceError: 'No se pudo guardar la sesión renovada de forma segura.' });
+      throw new Error('No se pudo guardar la sesión renovada de forma segura.');
+    }
+  },
+
+  /** Switch active company context for multi-company authorized users */
+  switchCompany: async (newCompany) => {
+    const { accessToken, refreshToken, user } = get();
+    const updatedUser = user
+      ? { ...user, companyId: newCompany._id || newCompany.id }
+      : null;
+    const session = {
+      accessToken,
+      refreshToken,
+      user: updatedUser,
+      company: newCompany,
+    };
+    try {
+      await writeSession(session);
+      set({ ...session, persistenceError: null });
+    } catch {
+      set({ persistenceError: 'No se pudo guardar el cambio de empresa de forma segura.' });
+      throw new Error('No se pudo guardar el cambio de empresa de forma segura.');
+    }
   },
 
   hydrate: async () => {
     if (get().hydrated) return;
     try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      const raw = await readSession();
       if (raw) {
         const session = JSON.parse(raw);
-        set({ ...session, hydrated: true });
+        if (!session || typeof session !== 'object') throw new Error('Invalid session data');
+        set({ ...session, hydrated: true, persistenceError: null });
         return;
       }
+      set({ hydrated: true, persistenceError: null });
     } catch {
-      /* corrupted storage → treat as logged out */
+      set({
+        accessToken: null,
+        refreshToken: null,
+        user: null,
+        company: null,
+        hydrated: true,
+        persistenceError: 'No se pudo recuperar la sesión almacenada.',
+      });
     }
-    set({ hydrated: true });
   },
 
-  logout: () => {
+  logout: async () => {
     set({ accessToken: null, refreshToken: null, user: null, company: null });
-    AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
+    try {
+      await removeSession();
+      set({ persistenceError: null });
+    } catch (err) {
+      set({ persistenceError: 'No se pudo eliminar la sesión almacenada en este dispositivo.' });
+      throw new Error('No se pudo eliminar la sesión almacenada en este dispositivo.');
+    }
   },
 
   /** RBAC helper for the UI: has('products:create'). */

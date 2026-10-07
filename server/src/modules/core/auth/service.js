@@ -4,14 +4,15 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../users/model');
 const Role = require('../roles/model');
+const Company = require('../companies/model');
 const { env } = require('../../../config/env');
 const { ApiError } = require('../../../middlewares/errorHandler');
 
-function signTokens(user) {
+function signTokens(user, activeCompanyId = user.companyId) {
   // companyId may be a populated document (login populates it) or an ObjectId
   const claims = {
     sub: user._id.toString(),
-    companyId: user.companyId ? String(user.companyId._id || user.companyId) : null,
+    companyId: activeCompanyId ? String(activeCompanyId._id || activeCompanyId) : null,
     roleId: user.roleId ? String(user.roleId._id || user.roleId) : null,
   };
   return {
@@ -24,15 +25,17 @@ function signTokens(user) {
   };
 }
 
-async function buildProfile(user) {
-  const role = await Role.findById(user.roleId).lean();
+async function buildProfile(user, activeCompanyId = user.companyId, role) {
+  const resolvedRole = role || await Role.findById(user.roleId).lean();
   return {
     id: user._id.toString(),
     name: user.name,
     email: user.email,
     // always the id string; the full company comes in the `company` field
-    companyId: user.companyId ? String(user.companyId._id || user.companyId) : null,
-    role: role ? { id: role._id.toString(), name: role.name, permissions: role.permissions } : null,
+    companyId: activeCompanyId ? String(activeCompanyId._id || activeCompanyId) : null,
+    role: resolvedRole
+      ? { id: resolvedRole._id.toString(), name: resolvedRole.name, permissions: resolvedRole.permissions }
+      : null,
   };
 }
 
@@ -62,8 +65,30 @@ async function refresh(refreshToken) {
   const user = await User.findOne({ _id: payload.sub, isActive: true });
   if (!user) throw new ApiError(401, 'User is inactive or no longer exists');
 
-  const tokens = signTokens(user);
-  return { ...tokens, user: await buildProfile(user) };
+  const role = await Role.findById(user.roleId).lean();
+  const activeCompanyId = (role?.permissions || []).includes('*') && payload.companyId
+    ? payload.companyId
+    : user.companyId;
+  const tokens = signTokens(user, activeCompanyId);
+  return { ...tokens, user: await buildProfile(user, activeCompanyId, role) };
 }
 
-module.exports = { login, refresh };
+async function switchCompany(userId, companyId) {
+  const user = await User.findOne({ _id: userId, isActive: true });
+  if (!user) throw new ApiError(401, 'User is inactive or no longer exists');
+  const role = await Role.findById(user.roleId).lean();
+  if (!(role?.permissions || []).includes('*')) {
+    throw new ApiError(403, 'Only a platform administrator can switch companies');
+  }
+  const company = await Company.findById(companyId);
+  if (!company) throw new ApiError(404, 'Company not found');
+
+  const tokens = signTokens(user, company._id);
+  return {
+    ...tokens,
+    user: await buildProfile(user, company._id, role),
+    company,
+  };
+}
+
+module.exports = { login, refresh, switchCompany };

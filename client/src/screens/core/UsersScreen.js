@@ -2,70 +2,120 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import CrudScreen from '../../components/CrudScreen';
 import { usersService, rolesService } from '../../services/resources';
+import { Avatar } from '../../components/ui/Avatar';
+import { Badge } from '../../components/ui/Badge';
+import { colors, typography, spacing } from '../../theme';
+import { useAuthStore } from '../../store/authStore';
 
 const fields = [
-  { name: 'name', label: 'Nombre', type: 'text', required: true },
-  { name: 'email', label: 'Correo', type: 'email', required: true },
-  { name: 'password', label: 'Contraseña (mín. 8)', type: 'password' },
+  { name: 'name', label: 'Nombre completo', type: 'text', required: true },
+  { name: 'email', label: 'Correo electrónico', type: 'email', required: true },
+  { name: 'password', label: 'Contraseña (mín. 8 caracteres)', type: 'password' },
   {
     name: 'roleId',
-    label: 'Rol',
+    label: 'Rol de usuario',
     type: 'select',
     options: async () => {
       const roles = await rolesService.list();
       const list = Array.isArray(roles) ? roles : roles.items;
-      return list.map((r) => ({ label: r.name, value: r.id || r._id }));
+      const isCompanyUser = Boolean(useAuthStore.getState().user?.companyId);
+      const availableRoles = isCompanyUser
+        ? list.filter((role) => !role.permissions?.includes('*') &&
+          !role.permissions?.includes('companies:read') &&
+          !role.permissions?.includes('companies:write') &&
+          !role.permissions?.includes('roles:write'))
+        : list;
+      return availableRoles.map((r) => ({ label: r.name, value: r.id || r._id }));
     },
   },
-  { name: 'isActive', label: 'Activo', type: 'switch' },
+  { name: 'isActive', label: 'Cuenta Activa', type: 'switch', initialValue: true },
+];
+
+const columns = [
+  {
+    key: 'name',
+    title: 'Usuario',
+    sortable: true,
+    render: (user) => (
+      <View style={styles.userCol}>
+        <Avatar name={user.name} size={30} style={{ marginRight: spacing.xs + 2 }} />
+        <Text style={styles.userName}>{user.name}</Text>
+      </View>
+    ),
+  },
+  {
+    key: 'email',
+    title: 'Correo Electrónico',
+    sortable: true,
+    render: (user) => <Text style={styles.emailText}>{user.email}</Text>,
+  },
+  {
+    key: 'role',
+    title: 'Rol RBAC',
+    render: (user) => {
+      const roleName = user.roleId?.name || user.role?.name || 'Sin rol';
+      return <Badge label={roleName} variant="info" />;
+    },
+  },
+  {
+    key: 'isActive',
+    title: 'Estado',
+    sortable: true,
+    render: (user) => (
+      <Badge
+        label={user.isActive ? 'Activo' : 'Inactivo'}
+        variant={user.isActive ? 'success' : 'danger'}
+        dot
+      />
+    ),
+  },
 ];
 
 export default function UsersScreen({ navigation }) {
+  const currentUserId = useAuthStore((state) => state.user?.id || state.user?._id);
+
   return (
     <CrudScreen
       title="Usuarios"
-      subtitle="Users de la empresa · RBAC por rol"
+      subtitle="Gestión de cuentas y asignación de roles RBAC por empresa"
       entityName="usuario"
       service={usersService}
       fields={fields}
-      onBack={() => navigation.goBack()}
+      columns={columns}
+      onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
       readPermission="users:read"
       writePermission="users:write"
-      // Al editar sin contraseña nueva, no se envía el campo password
+      rowActions={(user) => [{
+        label: 'Desactivar',
+        variant: 'danger',
+        visible: user.isActive && String(user.id || user._id) !== String(currentUserId),
+        confirmTitle: 'Desactivar usuario',
+        confirmMessage: `¿Desactivar la cuenta de ${user.name}?`,
+        confirmLabel: 'Desactivar',
+        successMessage: 'Usuario desactivado.',
+        run: (item) => usersService.delete(item.id || item._id),
+      }]}
       mapFromForm={(form) => {
         const payload = { ...form };
         if (!payload.password) delete payload.password;
         return payload;
       }}
-      renderRow={(user) => (
-        <View>
-          <Text style={styles.name}>{user.name}</Text>
-          <Text style={styles.email}>{user.email}</Text>
-          <View style={styles.row}>
-            <Text style={styles.badge}>{user.roleId?.name || user.role?.name || 'Sin rol'}</Text>
-            <Text style={[styles.badge, user.isActive ? styles.ok : styles.off]}>
-              {user.isActive ? 'Activo' : 'Inactivo'}
-            </Text>
-          </View>
-        </View>
-      )}
     />
   );
 }
 
 const styles = StyleSheet.create({
-  name: { fontSize: 16, fontWeight: '600', color: '#0f172a' },
-  email: { fontSize: 13, color: '#64748b', marginTop: 2 },
-  row: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  badge: {
-    fontSize: 12,
-    backgroundColor: '#e2e8f0',
-    color: '#334155',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-    overflow: 'hidden',
+  userCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  ok: { backgroundColor: '#dcfce7', color: '#166534' },
-  off: { backgroundColor: '#fee2e2', color: '#991b1b' },
+  userName: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.bold,
+    color: colors.text,
+  },
+  emailText: {
+    fontSize: typography.sizes.sm,
+    color: colors.textSecondary,
+  },
 });

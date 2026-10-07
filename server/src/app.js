@@ -3,6 +3,7 @@
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
+const mongoose = require('mongoose');
 
 const { env, validateEnv } = require('./config/env');
 const { connectDb } = require('./config/db');
@@ -42,7 +43,13 @@ function createApp() {
   app.use(logger);
   app.use(audit); // automatic trail on successful mutating requests
 
-  app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+  app.get('/health', (_req, res) => {
+    const databaseConnected = mongoose.connection.readyState === 1;
+    res.status(databaseConnected ? 200 : 503).json({
+      status: databaseConnected ? 'ok' : 'unavailable',
+      database: databaseConnected ? 'connected' : 'disconnected',
+    });
+  });
 
   // Core
   app.use('/api/v1/auth', authRoutes);

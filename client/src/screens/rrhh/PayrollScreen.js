@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Screen, Card, AppButton, AppInput, EmptyState, ErrorBanner } from '../../components/ui';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { Screen, Card, Button, DataTable, Badge, Modal, Input, ErrorBanner } from '../../components/ui';
 import { payrollService } from '../../services/resources';
 import { usePermission } from '../../hooks/usePermission';
 import { apiErrorMessage } from '../../services/api';
 import { formatMoney, decimalToNumber } from '../../utils/money';
+import { colors, typography, spacing, radius } from '../../theme';
 
 function currentPeriod() {
   const now = new Date();
@@ -48,7 +49,7 @@ export default function PayrollScreen({ navigation }) {
     try {
       const res = await payrollService.run({ period });
       setResult(
-        `Periodo ${res.period}: ${res.created} nómina(s) generada(s), ${res.skipped} ya existente(s)`
+        `Periodo ${res.period}: ${res.created} nómina(s) procesada(s), ${res.skipped} ya existente(s).`
       );
       await load();
     } catch (err) {
@@ -58,114 +59,140 @@ export default function PayrollScreen({ navigation }) {
     }
   };
 
-  // Aggregated totals per period
-  const totals = entries.reduce((acc, e) => {
-    const key = e.period;
-    if (!acc[key]) acc[key] = { gross: 0, deductions: 0, net: 0 };
-    acc[key].gross += decimalToNumber(e.grossPay);
-    acc[key].deductions += decimalToNumber(e.deductions);
-    acc[key].net += decimalToNumber(e.netPay);
-    return acc;
-  }, {});
+  const columns = [
+    {
+      key: 'period',
+      title: 'Periodo',
+      sortable: true,
+      render: (e) => <Badge label={e.period} variant="info" />,
+    },
+    {
+      key: 'employeeId',
+      title: 'Empleado',
+      sortable: true,
+      render: (e) => (
+        <View>
+          <Text style={styles.nameText}>{e.employeeId?.name || 'Empleado'}</Text>
+          <Text style={styles.posText}>{e.employeeId?.position || ''}</Text>
+        </View>
+      ),
+    },
+    {
+      key: 'grossPay',
+      title: 'Salario Bruto',
+      align: 'right',
+      render: (e) => <Text style={styles.amountText}>{formatMoney(e.grossPay)}</Text>,
+    },
+    {
+      key: 'deductions',
+      title: 'Deducciones',
+      align: 'right',
+      render: (e) => <Text style={styles.deductText}>-{formatMoney(e.deductions)}</Text>,
+    },
+    {
+      key: 'netPay',
+      title: 'Pago Neto',
+      align: 'right',
+      sortable: true,
+      render: (e) => <Text style={styles.netText}>{formatMoney(e.netPay)}</Text>,
+    },
+  ];
 
   return (
     <Screen
       title="Nómina"
-      subtitle="POST /payroll/run: gross − deducciones = neto (transaccional, idempotente)"
-      onBack={() => navigation.goBack()}
+      subtitle="Procesamiento de nómina periódico idempotente (Bruto − Deducciones = Neto)"
+      onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
       headerRight={
-        canWrite ? <AppButton title="Correr nómina" onPress={() => setModalOpen(true)} /> : null
+        canWrite ? (
+          <Button title="Correr Nómina" onPress={() => setModalOpen(true)} size="md" />
+        ) : null
       }
     >
       <ErrorBanner message={error} />
-      <FlatList
+
+      <DataTable
+        columns={columns}
         data={entries}
-        keyExtractor={(e) => e.id || e._id}
-        refreshing={loading}
-        onRefresh={load}
-        ListEmptyComponent={!loading ? <EmptyState text="No hay registros de nómina" /> : null}
-        renderItem={({ item }) => (
-          <Card>
-            <View style={styles.row}>
-              <Text style={styles.name}>{item.employeeId?.name || 'Empleado'}</Text>
-              <Text style={styles.net}>{formatMoney(item.netPay)}</Text>
-            </View>
-            <Text style={styles.meta}>
-              {item.period} · {item.employeeId?.position || ''} · bruto {formatMoney(item.grossPay)} −
-              deducciones {formatMoney(item.deductions)}
-            </Text>
-          </Card>
-        )}
-        ListFooterComponent={
-          Object.keys(totals).length > 0 ? (
-            <View style={styles.totalsBox}>
-              <Text style={styles.totalsTitle}>Totales por periodo</Text>
-              {Object.entries(totals)
-                .sort((a, b) => b[0].localeCompare(a[0]))
-                .map(([p, t]) => (
-                  <View key={p} style={styles.totalRow}>
-                    <Text style={styles.period}>{p}</Text>
-                    <Text style={styles.totalText}>
-                      Σ Bruto {formatMoney(t.gross)} · Deduc {formatMoney(t.deductions)} · Neto{' '}
-                      {formatMoney(t.net)}
-                    </Text>
-                  </View>
-                ))}
-            </View>
-          ) : null
-        }
+        loading={loading}
+        searchable={true}
+        searchPlaceholder="Buscar registro de nómina..."
+        emptyText="No hay registros de nómina procesados"
       />
 
-      <Modal visible={modalOpen} animationType="fade" transparent>
-        <View style={styles.backdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Correr nómina del periodo</Text>
-            <ErrorBanner message={error} />
-            {result ? <Text style={styles.result}>{result}</Text> : null}
-            <AppInput label="Periodo (YYYY-MM)" value={period} onChangeText={setPeriod} />
-            <Text style={styles.hint}>
-              Procesa a todos los empleados activos. Los que ya tienen nómina en el periodo se
-              omiten (idempotente).
-            </Text>
-            <View style={styles.actions}>
-              <AppButton title="Cancelar" variant="ghost" onPress={() => setModalOpen(false)} />
-              <AppButton title="Procesar" onPress={run} loading={running} />
-            </View>
+      {/* Run Payroll Modal */}
+      <Modal
+        visible={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title="Procesar Nómina de Periodo"
+        subtitle="Generación automática e idempotente de salarios netos por empleado"
+        primaryActionLabel="Procesar Periodo"
+        onPrimaryAction={run}
+        primaryLoading={running}
+        secondaryActionLabel="Cerrar"
+        onSecondaryAction={() => setModalOpen(false)}
+      >
+        <ErrorBanner message={error} />
+        {result ? (
+          <View style={styles.resultBox}>
+            <Text style={styles.resultText}>✓ {result}</Text>
           </View>
-        </View>
+        ) : null}
+
+        <Input
+          label="Periodo AAAA-MM"
+          value={period}
+          onChangeText={setPeriod}
+          placeholder="2026-10"
+        />
+
+        <Text style={styles.hintText}>
+          ℹ️ Procesa a todos los empleados activos de la empresa. Las nóminas ya procesadas en el periodo se omiten automáticamente para evitar duplicidad.
+        </Text>
       </Modal>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  name: { fontSize: 16, fontWeight: '700', color: '#0f172a', flex: 1 },
-  net: { fontSize: 15, fontWeight: '800', color: '#16a34a' },
-  meta: { fontSize: 12, color: '#64748b', marginTop: 4 },
-  totalsBox: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 8,
-    marginBottom: 16,
+  nameText: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.bold,
+    color: colors.text,
   },
-  totalsTitle: { fontSize: 13, fontWeight: '800', color: '#334155', marginBottom: 8 },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  period: { fontSize: 13, fontWeight: '700', color: '#1d4ed8' },
-  totalText: { fontSize: 12, color: '#334155' },
-  backdrop: { flex: 1, backgroundColor: 'rgba(15,23,42,0.5)', justifyContent: 'center', padding: 24 },
-  modalCard: { backgroundColor: '#fff', borderRadius: 16, padding: 20 },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a', marginBottom: 10 },
-  hint: { fontSize: 12, color: '#64748b', marginTop: 4, marginBottom: 8 },
-  result: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#166534',
-    backgroundColor: '#dcfce7',
-    padding: 8,
-    borderRadius: 8,
-    marginBottom: 8,
+  posText: {
+    fontSize: typography.sizes.xs,
+    color: colors.textSecondary,
   },
-  actions: { flexDirection: 'row', gap: 12, marginTop: 6 },
+  amountText: {
+    fontSize: typography.sizes.sm,
+    color: colors.textSecondary,
+  },
+  deductText: {
+    fontSize: typography.sizes.sm,
+    color: colors.danger,
+  },
+  netText: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.extrabold,
+    color: colors.greenDark,
+  },
+  resultBox: {
+    backgroundColor: colors.greenSubtle,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.greenLight,
+  },
+  resultText: {
+    fontSize: typography.sizes.sm,
+    color: colors.greenDark,
+    fontWeight: typography.weights.bold,
+  },
+  hintText: {
+    fontSize: typography.sizes.xs,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
 });

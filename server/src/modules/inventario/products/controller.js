@@ -4,7 +4,7 @@ const service = require('./service');
 
 async function list(req, res, next) {
   try {
-    const companyId = req.query.companyId || req.user.companyId;
+    const companyId = req.user.companyId || req.query.companyId;
     res.json(await service.list({ ...req.query, companyId }));
   } catch (err) {
     next(err);
@@ -13,7 +13,7 @@ async function list(req, res, next) {
 
 async function getById(req, res, next) {
   try {
-    res.json(await service.getById(req.params.id));
+    res.json(await service.getById(req.params.id, req.user.companyId));
   } catch (err) {
     next(err);
   }
@@ -21,8 +21,7 @@ async function getById(req, res, next) {
 
 async function create(req, res, next) {
   try {
-    const body = { ...req.body };
-    if (!body.companyId) body.companyId = req.user.companyId;
+    const body = { ...req.body, ...(req.user.companyId && { companyId: req.user.companyId }) };
     res.status(201).json(await service.create(body));
   } catch (err) {
     next(err);
@@ -31,10 +30,18 @@ async function create(req, res, next) {
 
 async function update(req, res, next) {
   try {
-    res.json(await service.update(req.params.id, req.body));
+    res.json(await service.update(req.params.id, req.body, req.user.companyId));
   } catch (err) {
     next(err);
   }
 }
 
-module.exports = { list, getById, create, update };
+async function deactivate(req, res, next) {
+  try {
+    res.json(await service.deactivate(req.params.id, req.user.companyId));
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { list, getById, create, update, deactivate };
