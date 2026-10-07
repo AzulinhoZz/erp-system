@@ -83,7 +83,7 @@ async function create({ customerId, items, date, warehouseId, companyId }) {
  * After commit: emits 'stock.low' events for products that crossed their
  * minimum (Socket.io → purchasing alert).
  */
-async function confirm(id, { warehouseId, companyId } = {}) {
+async function confirm(id, { warehouseId, companyId, userId } = {}) {
   const session = await mongoose.startSession();
   try {
     let so;
@@ -154,7 +154,11 @@ async function confirm(id, { warehouseId, companyId } = {}) {
 
       // --- stock validation + movements -----------------------------
       for (const item of so.items) {
-        const product = await Product.findOne({ _id: item.productId, ...(companyId && { companyId }) }).session(session);
+        const product = await Product.findOne({
+          _id: item.productId,
+          ...(companyId && { companyId }),
+          isActive: { $ne: false },
+        }).session(session);
         if (!product) throw new ApiError(400, `productId ${item.productId} does not exist`);
         if (product.stock < item.quantity) {
           throw new ApiError(
@@ -168,19 +172,26 @@ async function confirm(id, { warehouseId, companyId } = {}) {
             {
               productId: item.productId,
               warehouseId: source,
+              companyId: product.companyId,
+              userId,
               type: 'out',
               quantity: item.quantity,
+              previousStock: product.stock,
+              newStock: product.stock - item.quantity,
               date: new Date(),
               reference: `SO-${String(so._id).slice(-6).toUpperCase()}`,
             },
           ],
           { session }
         );
-        await Product.updateOne(
-          { _id: item.productId, ...(companyId && { companyId }) },
+        const stockResult = await Product.updateOne(
+          { _id: item.productId, ...(companyId && { companyId }), stock: { $gte: item.quantity } },
           { $inc: { stock: -item.quantity } },
           { session }
         );
+        if (stockResult.matchedCount !== 1) {
+          throw new ApiError(409, `Insufficient stock for ${product.sku}`);
+        }
         touchedProductIds.push(item.productId);
       }
 

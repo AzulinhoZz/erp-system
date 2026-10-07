@@ -21,6 +21,15 @@ async function refresh(req, res, next) {
   }
 }
 
+async function switchCompany(req, res, next) {
+  try {
+    const result = await service.switchCompany(req.user.id, req.body.companyId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function me(req, res, next) {
   try {
     const User = require('../users/model');
@@ -38,4 +47,4 @@ async function me(req, res, next) {
   }
 }
 
-module.exports = { login, refresh, me };
+module.exports = { login, refresh, switchCompany, me };

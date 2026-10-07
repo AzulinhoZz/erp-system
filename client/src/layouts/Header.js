@@ -15,6 +15,7 @@ import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import { companiesService } from '../services/resources';
 import { apiErrorMessage } from '../services/api';
+import { authService } from '../services/authService';
 import { Avatar } from '../components/ui/Avatar';
 import { Badge } from '../components/ui/Badge';
 
@@ -29,7 +30,7 @@ export function Header({
 }) {
   const user = useAuthStore((s) => s.user);
   const company = useAuthStore((s) => s.company);
-  const switchCompany = useAuthStore((s) => s.switchCompany);
+  const setSession = useAuthStore((s) => s.setSession);
   const logout = useAuthStore((s) => s.logout);
   const can = useAuthStore((s) => s.can);
   const colors = useThemeStore((s) => s.colors);
@@ -42,7 +43,7 @@ export function Header({
   const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [switchingCompany, setSwitchingCompany] = useState(false);
   const [companyError, setCompanyError] = useState('');
-  const canSwitchCompany = can('*') || can('companies:read');
+  const canSwitchCompany = can('*');
 
   const fetchCompanies = async () => {
     if (!canSwitchCompany) return;
@@ -70,12 +71,22 @@ export function Header({
     }
     setSwitchingCompany(true);
     try {
-      switchCompany(selectedComp);
+      const session = await authService.switchCompany(selectedComp._id || selectedComp.id);
+      await setSession(session);
       setCompanyMenuOpen(false);
     } catch (err) {
       setCompanyError(apiErrorMessage(err));
     } finally {
       setSwitchingCompany(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    setUserMenuOpen(false);
+    try {
+      await logout();
+    } catch (err) {
+      console.error('[auth] failed to clear persisted session:', err.message);
     }
   };
 
@@ -223,7 +234,7 @@ export function Header({
               <Text style={s.dropdownItemIcon}>◔</Text><Text style={s.dropdownItemText}>Notificaciones</Text>
             </TouchableOpacity>
             <View style={s.dropdownDivider} />
-            <TouchableOpacity style={s.dropdownItem} onPress={() => { setUserMenuOpen(false); logout(); }}>
+            <TouchableOpacity style={s.dropdownItem} onPress={handleLogout}>
               <Text style={s.dropdownItemIcon}>↗</Text><Text style={s.dropdownItemDangerText}>Cerrar Sesión</Text>
             </TouchableOpacity>
           </View>

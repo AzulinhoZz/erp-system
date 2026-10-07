@@ -45,4 +45,12 @@ async function update(req, res, next) {
   }
 }
 
-module.exports = { list, getById, create, update };
+async function deactivate(req, res, next) {
+  try {
+    res.json(await service.deactivate(req.params.id, actor(req)));
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { list, getById, create, update, deactivate };

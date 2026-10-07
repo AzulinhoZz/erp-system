@@ -41,9 +41,9 @@ function audit(req, res, next) {
 
   res.on('finish', () => {
     if (res.statusCode >= 400) return; // only successful operations
-    if (req.path.startsWith('/auth')) return; // skip auth flows
+    if (req.path.startsWith('/auth') || req.path.startsWith('/api/v1/auth/')) return;
 
-    log({
+    void log({
       userId: req.user?.id || null,
       companyId: req.user?.companyId || null,
       method: req.method,
@@ -52,6 +52,8 @@ function audit(req, res, next) {
       status: res.statusCode,
       ip: req.ip || req.socket?.remoteAddress || '',
       details: summarize(req.body),
+    }).catch((err) => {
+      console.error('[audit] failed to persist mutation record:', err.message);
     });
   });
 

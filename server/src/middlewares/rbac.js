@@ -2,10 +2,16 @@
 
 const mongoose = require('mongoose');
 const { ApiError } = require('./errorHandler');
+const { PERMISSIONS } = require('@erp/shared');
 
 /** Tiny in-memory cache so we don't hit the roles collection on every request. */
 const roleCache = new Map();
 const CACHE_TTL_MS = 60_000;
+const PLATFORM_PERMISSIONS = new Set([
+  PERMISSIONS.COMPANIES_READ,
+  PERMISSIONS.COMPANIES_WRITE,
+  PERMISSIONS.ROLES_WRITE,
+]);
 
 async function getRole(roleId) {
   const cached = roleCache.get(roleId);
@@ -43,6 +49,13 @@ function authorize(required) {
         requiredPerms[0] === '*' || requiredPerms.every((p) => perms.includes(p) || perms.includes('*'));
 
       if (!allowed) return next(new ApiError(403, 'Insufficient permissions'));
+      if (
+        req.user.companyId &&
+        !perms.includes('*') &&
+        requiredPerms.some((permission) => PLATFORM_PERMISSIONS.has(permission))
+      ) {
+        return next(new ApiError(403, 'Platform permission required'));
+      }
       return next();
     } catch (err) {
       return next(err);

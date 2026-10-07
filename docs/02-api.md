@@ -10,11 +10,13 @@
 |---|---|---|---|
 | POST | `/auth/login` | público | `{email, password}` → `{accessToken, refreshToken, user, company}` |
 | POST | `/auth/refresh` | público | `{refreshToken}` → tokens rotados |
+| POST | `/auth/switch-company` | platform wildcard role | `{companyId}` → refreshed tenant context and tokens |
 | GET | `/auth/me` | autenticado | perfil + rol + permisos |
 | GET | `/users` | `users:read` | `?page&limit&q&isActive&companyId` |
 | GET | `/users/:id` | `users:read` | |
 | POST | `/users` | `users:write` | `{name, email, password, roleId, companyId?}` |
 | PUT | `/users/:id` | `users:write` | password opcional |
+| DELETE | `/users/:id` | `users:write` | desactivación lógica; un usuario no puede desactivarse a sí mismo |
 | GET/POST | `/roles` · GET/PUT `/roles/:id` | `roles:read/write` | |
 | GET/POST | `/companies` · GET/PUT `/companies/:id` | `companies:read/write` | |
 | GET/POST | `/branches` · GET/PUT `/branches/:id` | `branches:read/write` | |
@@ -24,8 +26,15 @@
 | Método | Endpoint | Permiso |
 |---|---|---|
 | GET/POST | `/products`, GET/PUT `/products/:id` | `products:read` / `products:write` |
+| DELETE | `/products/:id` | `products:write` (desactivación lógica) |
 | GET/POST | `/warehouses`, GET/PUT `/warehouses/:id` | `stock:read` / `stock:write` |
 | GET/POST | `/stock-movements` | `stock:read` / `stock:write` |
+| POST | `/stock-movements/:id/reverse` | `stock:write` |
+
+Stock movement `type` accepts `in`, `out`, or `adjustment`. IN/OUT quantities
+are positive integers; adjustments use a non-zero signed integer delta.
+Confirmed movement history is append-only. Reversal creates a compensating
+movement and restores product stock inside a MongoDB transaction.
 
 ## Compras (✅ implementado)
 

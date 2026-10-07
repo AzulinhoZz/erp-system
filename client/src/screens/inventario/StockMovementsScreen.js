@@ -35,6 +35,7 @@ const fields = [
     options: async () => [
       { label: 'Entrada (in)', value: 'in' },
       { label: 'Salida (out)', value: 'out' },
+      { label: 'Ajuste (+/-)', value: 'adjustment' },
     ],
   },
   { name: 'quantity', label: 'Cantidad', type: 'text' },
@@ -48,8 +49,12 @@ const columns = [
     sortable: true,
     render: (m) => (
       <Badge
-        label={m.type === 'in' ? '▲ ENTRADA' : '▼ SALIDA'}
-        variant={m.type === 'in' ? 'success' : 'danger'}
+        label={
+          m.type === 'adjustment'
+            ? `AJUSTE ${Number(m.quantity) > 0 ? '+' : '-'}`
+            : m.type === 'in' ? '▲ ENTRADA' : '▼ SALIDA'
+        }
+        variant={m.type === 'in' || (m.type === 'adjustment' && Number(m.quantity) > 0) ? 'success' : 'danger'}
         dot
       />
     ),
@@ -71,15 +76,25 @@ const columns = [
     sortable: true,
     align: 'right',
     render: (m) => (
-      <Text style={[styles.qtyText, m.type === 'in' ? styles.qtyIn : styles.qtyOut]}>
-        {m.type === 'in' ? '+' : '-'}{m.quantity} {m.productId?.unit || ''}
-      </Text>
+      <View>
+        <Text style={[styles.qtyText, (m.type === 'in' || (m.type === 'adjustment' && Number(m.quantity) > 0)) ? styles.qtyIn : styles.qtyOut]}>
+          {m.type === 'out' ? '-' : Number(m.quantity) > 0 ? '+' : ''}{m.quantity} {m.productId?.unit || ''}
+        </Text>
+        {Number.isFinite(m.previousStock) && Number.isFinite(m.newStock) ? (
+          <Text style={styles.metaText}>Existencia: {m.previousStock} → {m.newStock}</Text>
+        ) : null}
+      </View>
     ),
   },
   {
     key: 'warehouseId',
     title: 'Bodega',
     render: (m) => <Text style={styles.metaText}>{m.warehouseId?.name || '—'}</Text>,
+  },
+  {
+    key: 'userId',
+    title: 'Usuario',
+    render: (m) => <Text style={styles.metaText}>{m.userId?.name || '—'}</Text>,
   },
   {
     key: 'reference',
@@ -108,6 +123,17 @@ export default function StockMovementsScreen({ navigation }) {
       onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
       readPermission="stock:read"
       writePermission="stock:write"
+      editable={false}
+      rowActions={(movement) => [{
+        label: 'Revertir',
+        variant: 'danger',
+        visible: !movement.reversalOf && !movement.isReversed,
+        confirmTitle: 'Revertir movimiento',
+        confirmMessage: 'Se registrará un movimiento compensatorio y se actualizará la existencia. El historial original no se eliminará.',
+        confirmLabel: 'Revertir',
+        successMessage: 'Reversión registrada correctamente.',
+        run: (item) => stockMovementsService.reverse(item.id || item._id),
+      }]}
       mapFromForm={(form) => ({
         ...form,
         quantity: Number(form.quantity),

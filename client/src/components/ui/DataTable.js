@@ -248,7 +248,19 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontWeight: typography.weights.medium,
   },
-  refreshIndicator: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    justifyContent: 'flex-end',\n    gap: spacing.xs,\n    paddingHorizontal: spacing.sm,\n    paddingVertical: 4,\n  },\n  refreshText: {\n    fontSize: typography.sizes.xs,\n    color: colors.textSecondary,\n  },\n  tableCard: {
+  refreshIndicator: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  gap: spacing.xs,
+  paddingHorizontal: spacing.sm,
+  paddingVertical: 4,
+},
+refreshText: {
+  fontSize: typography.sizes.xs,
+  color: colors.textSecondary,
+},
+tableCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     borderWidth: 1,

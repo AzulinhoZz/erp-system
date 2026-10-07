@@ -14,5 +14,6 @@ router.get('/', listValidators, validate, authorize(PERMISSIONS.USERS_READ), con
 router.get('/:id', authorize(PERMISSIONS.USERS_READ), controller.getById);
 router.post('/', createValidators, validate, authorize(PERMISSIONS.USERS_WRITE), controller.create);
 router.put('/:id', updateValidators, validate, authorize(PERMISSIONS.USERS_WRITE), controller.update);
+router.delete('/:id', authorize(PERMISSIONS.USERS_WRITE), controller.deactivate);
 
 module.exports = router;

@@ -5,6 +5,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  Alert,
 } from 'react-native';
 import {
   Screen,
@@ -37,6 +38,7 @@ export default function CrudScreen({
   mapFromForm,
   readPermission,
   writePermission,
+  editable = true,
   onBack,
   rowActions,
   onCreate,
@@ -101,8 +103,8 @@ export default function CrudScreen({
         try {
           const opts = await f.options();
           if (alive) setFieldOptions((prev) => ({ ...prev, [f.name]: opts }));
-        } catch {
-          /* options are auxiliary — ignore failures */
+        } catch (err) {
+          if (alive) setError(apiErrorMessage(err));
         }
       });
     return () => {
@@ -114,7 +116,7 @@ export default function CrudScreen({
     setEditing(null);
     const initial = {};
     fields.forEach((f) => {
-      initial[f.name] = f.type === 'switch' ? false : '';
+      initial[f.name] = f.type === 'switch' ? Boolean(f.initialValue) : '';
     });
     setForm(initial);
     setError('');
@@ -137,6 +139,7 @@ export default function CrudScreen({
       else await service.create(payload);
       setModalOpen(false);
       await load();
+      Alert.alert('Listo', `${entityName} ${editing ? 'actualizado' : 'creado'} correctamente`);
     } catch (err) {
       setError(apiErrorMessage(err));
     } finally {
@@ -153,6 +156,7 @@ export default function CrudScreen({
     try {
       await action.run(item);
       await load();
+      if (action.successMessage) Alert.alert('Listo', action.successMessage);
     } catch (err) {
       setError(apiErrorMessage(err));
     } finally {
@@ -224,14 +228,14 @@ export default function CrudScreen({
           searchable={true}
           searchPlaceholder={`Buscar ${entityName}...`}
           emptyText={`No hay ${entityName}s registrados`}
-          onRowPress={(item) => canWrite && openEdit(item)}
+          onRowPress={(item) => canWrite && editable && openEdit(item)}
           renderActions={(item) => {
-            const actions = (rowActions ? rowActions(item) : []).filter(
+            const actions = (canWrite ? (rowActions ? rowActions(item) : []) : []).filter(
               (a) => a.visible === undefined || a.visible
             );
             return (
               <View style={styles.actionRow}>
-                {canWrite ? (
+                {canWrite && editable ? (
                   <Button
                     title="Editar"
                     variant="ghost"
@@ -250,7 +254,20 @@ export default function CrudScreen({
                     variant={action.variant || 'ghost'}
                     size="sm"
                     disabled={actionBusy !== null}
-                    onPress={() => runRowAction(action, item)}
+                    onPress={() => {
+                      if (action.confirmMessage) {
+                        Alert.alert(
+                          action.confirmTitle || 'Confirmar acción',
+                          action.confirmMessage,
+                          [
+                            { text: 'Cancelar', style: 'cancel' },
+                            { text: action.confirmLabel || 'Confirmar', style: 'destructive', onPress: () => runRowAction(action, item) },
+                          ]
+                        );
+                        return;
+                      }
+                      runRowAction(action, item);
+                    }}
                   />
                 ))}
               </View>

@@ -10,7 +10,8 @@
  * Usage: start the server first (`node src/app.js`), then `node scripts/smoke.js`.
  */
 
-require('dotenv').config();
+const dotenv = require('dotenv');
+if (typeof dotenv?.config === 'function') dotenv.config();
 
 const BASE = `http://localhost:${process.env.PORT || 4000}/api/v1`;
 let token = null;

@@ -32,7 +32,11 @@ async function create(req, res, next) {
 /** POST /sales-orders/:id/confirm — validates stock + credit, moves stock. */
 async function confirm(req, res, next) {
   try {
-    res.json(await service.confirm(req.params.id, { ...req.body, companyId: req.user.companyId }));
+    res.json(await service.confirm(req.params.id, {
+      ...req.body,
+      companyId: req.user.companyId,
+      userId: req.user.id,
+    }));
   } catch (err) {
     next(err);
   }

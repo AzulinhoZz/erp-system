@@ -5,6 +5,7 @@ import { usersService, rolesService } from '../../services/resources';
 import { Avatar } from '../../components/ui/Avatar';
 import { Badge } from '../../components/ui/Badge';
 import { colors, typography, spacing } from '../../theme';
+import { useAuthStore } from '../../store/authStore';
 
 const fields = [
   { name: 'name', label: 'Nombre completo', type: 'text', required: true },
@@ -17,10 +18,17 @@ const fields = [
     options: async () => {
       const roles = await rolesService.list();
       const list = Array.isArray(roles) ? roles : roles.items;
-      return list.map((r) => ({ label: r.name, value: r.id || r._id }));
+      const isCompanyUser = Boolean(useAuthStore.getState().user?.companyId);
+      const availableRoles = isCompanyUser
+        ? list.filter((role) => !role.permissions?.includes('*') &&
+          !role.permissions?.includes('companies:read') &&
+          !role.permissions?.includes('companies:write') &&
+          !role.permissions?.includes('roles:write'))
+        : list;
+      return availableRoles.map((r) => ({ label: r.name, value: r.id || r._id }));
     },
   },
-  { name: 'isActive', label: 'Cuenta Activa', type: 'switch' },
+  { name: 'isActive', label: 'Cuenta Activa', type: 'switch', initialValue: true },
 ];
 
 const columns = [
@@ -64,6 +72,8 @@ const columns = [
 ];
 
 export default function UsersScreen({ navigation }) {
+  const currentUserId = useAuthStore((state) => state.user?.id || state.user?._id);
+
   return (
     <CrudScreen
       title="Usuarios"
@@ -75,6 +85,16 @@ export default function UsersScreen({ navigation }) {
       onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
       readPermission="users:read"
       writePermission="users:write"
+      rowActions={(user) => [{
+        label: 'Desactivar',
+        variant: 'danger',
+        visible: user.isActive && String(user.id || user._id) !== String(currentUserId),
+        confirmTitle: 'Desactivar usuario',
+        confirmMessage: `¿Desactivar la cuenta de ${user.name}?`,
+        confirmLabel: 'Desactivar',
+        successMessage: 'Usuario desactivado.',
+        run: (item) => usersService.delete(item.id || item._id),
+      }]}
       mapFromForm={(form) => {
         const payload = { ...form };
         if (!payload.password) delete payload.password;

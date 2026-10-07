@@ -4,7 +4,12 @@
  * Centralized environment configuration.
  * All env vars are read here — never use process.env outside this file.
  */
-require('dotenv').config();
+const dotenv = require('dotenv');
+if (typeof dotenv?.config === 'function') dotenv.config();
+
+const defaultCorsOrigins = process.env.NODE_ENV === 'production'
+  ? 'https://erp-azul-web.onrender.com'
+  : 'http://localhost:19006,http://localhost:8081';
 
 const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -16,9 +21,10 @@ const env = {
     accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   },
-  corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:19006,http://localhost:8081')
+  corsOrigins: (process.env.CORS_ORIGINS || defaultCorsOrigins)
     .split(',')
-    .map((o) => o.trim()),
+    .map((origin) => origin.trim())
+    .filter(Boolean),
 };
 
 /** Fail fast when a required variable is missing. */

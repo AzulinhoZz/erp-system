@@ -3,10 +3,15 @@ import { Platform } from 'react-native';
 import { useAuthStore } from '../store/authStore';
 
 function defaultApiUrl() {
-  // Android Emulator reaches the host machine through 10.0.2.2.
-  // iOS Simulator and web can reach the Mac through localhost.
-  // Physical devices MUST set EXPO_PUBLIC_API_URL to a LAN or HTTPS URL.
-  return Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000';
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://erp-azul-api.onrender.com';
+  }
+
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:4000';
+  }
+
+  return 'http://localhost:4000';
 }
 
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL || defaultApiUrl()).replace(/\/$/, '');
@@ -32,7 +37,7 @@ async function refreshTokens() {
     { refreshToken },
     { timeout: 15_000 }
   );
-  setTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken });
+  await setTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken });
   return data.accessToken;
 }
 
@@ -59,7 +64,11 @@ api.interceptors.response.use(
         return api(original);
       } catch (refreshError) {
         refreshPromise = null;
-        useAuthStore.getState().logout();
+        try {
+          await useAuthStore.getState().logout();
+        } catch (logoutError) {
+          console.error('[auth] failed to clear persisted session:', logoutError.message);
+        }
         return Promise.reject(refreshError);
       }
     }
@@ -70,7 +79,7 @@ api.interceptors.response.use(
 /** Extracts a useful user-facing message without leaking server internals. */
 export function apiErrorMessage(err) {
   if (!err?.response && (err?.code === 'ECONNABORTED' || err?.message === 'Network Error')) {
-    return `No se pudo conectar con la API (${API_URL}). Verifica que el backend esté encendido y que EXPO_PUBLIC_API_URL sea correcto.`;
+    return `No se pudo conectar con la API (${API_URL}). Verifica que EXPO_PUBLIC_API_URL apunte a un backend HTTPS público o al servidor local correcto.`;
   }
   return err?.response?.data?.error?.message || err?.message || 'Error inesperado';
 }

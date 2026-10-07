@@ -1,7 +1,8 @@
 {
   "expo": {
-    "name": "ERP Azul",
+    "name": "SYS ERP",
     "slug": "erp-azul",
+    "scheme": "sys-erp",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -16,6 +17,9 @@
     },
     "ios": {
       "bundleIdentifier": "mx.uptx.erp"
-    }
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
   }
 }

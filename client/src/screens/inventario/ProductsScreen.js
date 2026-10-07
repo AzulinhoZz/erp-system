@@ -13,7 +13,6 @@ const fields = [
   { name: 'unit', label: 'Unidad de medida (pcs, kg, m...)', type: 'text' },
   { name: 'cost', label: 'Costo unitario ($)', type: 'text', placeholder: '0.00' },
   { name: 'price', label: 'Precio de venta ($)', type: 'text', placeholder: '0.00' },
-  { name: 'stock', label: 'Stock inicial (solo al crear)', type: 'text' },
   { name: 'minStock', label: 'Stock mínimo para alerta', type: 'text' },
 ];
 
@@ -80,6 +79,16 @@ export default function ProductsScreen({ navigation }) {
       onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
       readPermission="products:read"
       writePermission="products:write"
+      rowActions={(product) => [{
+        label: 'Desactivar',
+        variant: 'danger',
+        visible: product.isActive !== false,
+        confirmTitle: 'Desactivar producto',
+        confirmMessage: `¿Desactivar ${product.sku} — ${product.name}? El historial y las existencias se conservarán.`,
+        confirmLabel: 'Desactivar',
+        successMessage: 'Producto desactivado. El historial de inventario se conserva.',
+        run: (item) => productsService.delete(item.id || item._id),
+      }]}
       mapToForm={(p) => ({
         sku: p.sku || '',
         name: p.name || '',
@@ -87,7 +96,6 @@ export default function ProductsScreen({ navigation }) {
         unit: p.unit || '',
         cost: String(p.cost?.$numberDecimal ?? p.cost ?? '0'),
         price: String(p.price?.$numberDecimal ?? p.price ?? '0'),
-        stock: String(p.stock ?? 0),
         minStock: String(p.minStock ?? 0),
       })}
       mapFromForm={(form) => ({

@@ -32,7 +32,11 @@ async function create(req, res, next) {
 /** POST /purchase-orders/:id/receive — integrate with inventory. */
 async function receive(req, res, next) {
   try {
-    res.json(await service.receive(req.params.id, { ...req.body, companyId: req.user.companyId }));
+    res.json(await service.receive(req.params.id, {
+      ...req.body,
+      companyId: req.user.companyId,
+      userId: req.user.id,
+    }));
   } catch (err) {
     next(err);
   }

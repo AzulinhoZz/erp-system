@@ -14,6 +14,7 @@ import { AppButton, AppInput, ErrorBanner } from '../../components/ui';
 
 export default function LoginScreen() {
   const setSession = useAuthStore((s) => s.setSession);
+  const persistenceError = useAuthStore((s) => s.persistenceError);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -28,7 +29,7 @@ export default function LoginScreen() {
     setError('');
     try {
       const session = await authService.login(email.trim(), password);
-      setSession(session);
+      await setSession(session);
       // El navigation switch se encarga del resto al cambiar user
     } catch (err) {
       setError(apiErrorMessage(err));
@@ -54,7 +55,7 @@ export default function LoginScreen() {
         </View>
         <Text style={styles.subtitle}>Inicia sesión para continuar</Text>
 
-        <ErrorBanner message={error} />
+        <ErrorBanner message={error || persistenceError} />
 
         <AppInput
           label="Correo electrónico"

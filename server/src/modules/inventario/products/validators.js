@@ -10,7 +10,7 @@ const createValidators = [
   body('unit').optional().isString(),
   body('cost').custom(isDecimalString).withMessage('cost must be a positive decimal string'),
   body('price').custom(isDecimalString).withMessage('price must be a positive decimal string'),
-  body('stock').optional().isInt({ min: 0 }),
+  body('stock').optional().equals('0').withMessage('Initial stock must be recorded as a stock movement'),
   body('minStock').optional().isInt({ min: 0 }),
   body('companyId').optional().isMongoId(),
 ];

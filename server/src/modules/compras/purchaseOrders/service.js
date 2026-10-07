@@ -78,7 +78,7 @@ async function create({ supplierId, items, date, warehouseId, companyId }) {
  *   4. marks the PO as 'received'
  * Stock only increases AFTER a successful commit.
  */
-async function receive(id, { warehouseId, companyId } = {}) {
+async function receive(id, { warehouseId, companyId, userId } = {}) {
   const session = await mongoose.startSession();
   try {
     let result;
@@ -97,24 +97,39 @@ async function receive(id, { warehouseId, companyId } = {}) {
       if (!warehouse) throw new ApiError(400, 'warehouseId does not match an existing warehouse');
 
       for (const item of po.items) {
+        const product = await Product.findOne({
+          _id: item.productId,
+          ...(companyId && { companyId }),
+        }).session(session);
+        if (!product) throw new ApiError(400, `productId ${item.productId} does not exist`);
+        const previousStock = product.stock;
+        const newStock = previousStock + item.quantity;
+
         await StockMovement.create(
           [
             {
               productId: item.productId,
               warehouseId: destination,
+              companyId: po.companyId,
+              userId,
               type: 'in',
               quantity: item.quantity,
+              previousStock,
+              newStock,
               date: new Date(),
               reference: `PO-${String(po._id).slice(-6).toUpperCase()}`,
             },
           ],
           { session }
         );
-        await Product.updateOne(
+        const stockResult = await Product.updateOne(
           { _id: item.productId, ...(companyId && { companyId }) },
           { $inc: { stock: item.quantity } },
           { session }
         );
+        if (stockResult.matchedCount !== 1) {
+          throw new ApiError(409, `Could not update stock for product ${item.productId}`);
+        }
       }
 
       po.status = 'received';
